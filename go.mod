@@ -1,4 +1,4 @@
-module github.com/crossplane/provider-template
+module github.com/crossplane-contrib/provider-nifi
 
 go 1.24.0
 
