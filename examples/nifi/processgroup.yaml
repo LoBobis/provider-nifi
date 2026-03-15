@@ -8,8 +8,8 @@ spec:
     parentGroupId: "root"
     name: My Data Pipeline
     position:
-      x: 400
-      y: 200
+      "x": 400
+      "y": 200
     comments: "A data processing pipeline managed by Crossplane"
     desiredState: STOPPED
   providerConfigRef:

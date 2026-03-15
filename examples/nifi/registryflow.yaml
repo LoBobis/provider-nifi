@@ -11,8 +11,8 @@ spec:
     flowId: "<versioned-flow-id>"
     flowVersion: 3
     position:
-      x: 800
-      y: 200
+      "x": 800
+      "y": 200
     desiredState: RUNNING
   providerConfigRef:
     name: default

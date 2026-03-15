@@ -9,8 +9,8 @@ spec:
     type: org.apache.nifi.processors.standard.GenerateFlowFile
     name: Generate FlowFile
     position:
-      x: 100
-      y: 100
+      "x": 100
+      "y": 100
     config:
       schedulingStrategy: TIMER_DRIVEN
       schedulingPeriod: "5 sec"
