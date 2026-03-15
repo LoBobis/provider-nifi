@@ -35,6 +35,9 @@ spec:
                   kind: ProviderConfig
             patches:
               - type: FromCompositeFieldPath
+                fromFieldPath: metadata.labels["crossplane.io/claim-namespace"]
+                toFieldPath: metadata.namespace
+              - type: FromCompositeFieldPath
                 fromFieldPath: spec.parentGroupId
                 toFieldPath: spec.forProvider.parentGroupId
               - type: FromCompositeFieldPath
@@ -71,6 +74,9 @@ spec:
                   name: default
                   kind: ProviderConfig
             patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.labels["crossplane.io/claim-namespace"]
+                toFieldPath: metadata.namespace
               - type: FromCompositeFieldPath
                 fromFieldPath: status.pipeline.processGroupId
                 toFieldPath: spec.forProvider.parentGroupId
@@ -111,6 +117,9 @@ spec:
                   kind: ProviderConfig
             patches:
               - type: FromCompositeFieldPath
+                fromFieldPath: metadata.labels["crossplane.io/claim-namespace"]
+                toFieldPath: metadata.namespace
+              - type: FromCompositeFieldPath
                 fromFieldPath: status.pipeline.processGroupId
                 toFieldPath: spec.forProvider.parentGroupId
                 policy:
@@ -149,6 +158,9 @@ spec:
                   kind: ProviderConfig
             patches:
               - type: FromCompositeFieldPath
+                fromFieldPath: metadata.labels["crossplane.io/claim-namespace"]
+                toFieldPath: metadata.namespace
+              - type: FromCompositeFieldPath
                 fromFieldPath: status.pipeline.processGroupId
                 toFieldPath: spec.forProvider.parentGroupId
                 policy:
@@ -182,6 +194,9 @@ spec:
                   name: default
                   kind: ProviderConfig
             patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.labels["crossplane.io/claim-namespace"]
+                toFieldPath: metadata.namespace
               - type: FromCompositeFieldPath
                 fromFieldPath: status.pipeline.processGroupId
                 toFieldPath: spec.forProvider.parentGroupId
@@ -233,6 +248,9 @@ spec:
                   name: default
                   kind: ProviderConfig
             patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.labels["crossplane.io/claim-namespace"]
+                toFieldPath: metadata.namespace
               - type: FromCompositeFieldPath
                 fromFieldPath: status.pipeline.processGroupId
                 toFieldPath: spec.forProvider.parentGroupId
