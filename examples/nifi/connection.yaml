@@ -22,3 +22,4 @@ spec:
     flowFileExpiration: "0 sec"
   providerConfigRef:
     name: default
+    kind: ProviderConfig

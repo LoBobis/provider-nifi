@@ -16,3 +16,4 @@ spec:
     desiredState: RUNNING
   providerConfigRef:
     name: default
+    kind: ProviderConfig

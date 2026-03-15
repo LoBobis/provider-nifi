@@ -22,3 +22,4 @@ spec:
         sensitive: true
   providerConfigRef:
     name: default
+    kind: ProviderConfig
