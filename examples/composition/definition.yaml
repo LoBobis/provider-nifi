@@ -1,0 +1,47 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xnifipipelines.pipeline.nifi.crossplane.io
+spec:
+  group: pipeline.nifi.crossplane.io
+  names:
+    kind: XNiFiPipeline
+    plural: xnifipipelines
+  claimNames:
+    kind: NiFiPipeline
+    plural: nifipipelines
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parentGroupId:
+                  type: string
+                  description: "Parent process group ID (use 'root' for root canvas)"
+                  default: "root"
+                providerConfigRefName:
+                  type: string
+                  description: "Name of the ProviderConfig to use"
+                  default: "default"
+              required:
+                - parentGroupId
+            status:
+              type: object
+              properties:
+                pipeline:
+                  type: object
+                  properties:
+                    processGroupId:
+                      type: string
+                    generateFlowFileId:
+                      type: string
+                    replaceTextId:
+                      type: string
+                    logAttributeId:
+                      type: string

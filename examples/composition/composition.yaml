@@ -1,0 +1,256 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: nifi-pipeline-eyal-gever
+spec:
+  compositeTypeRef:
+    apiVersion: pipeline.nifi.crossplane.io/v1alpha1
+    kind: XNiFiPipeline
+
+  resources:
+    # ──────────────────────────────────────────────
+    # 1. Process Group — container for the pipeline
+    # ──────────────────────────────────────────────
+    - name: process-group
+      base:
+        apiVersion: nifi.crossplane.io/v1alpha1
+        kind: ProcessGroup
+        spec:
+          forProvider:
+            name: "Eyal Gever Pipeline"
+            position:
+              "x": 0
+              "y": 0
+            comments: "Pipeline: GenerateFlowFile -> ReplaceText (Eyal Gever) -> LogAttribute"
+            desiredState: STOPPED
+          providerConfigRef:
+            name: default
+            kind: ProviderConfig
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parentGroupId
+          toFieldPath: spec.forProvider.parentGroupId
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.providerConfigRefName
+          toFieldPath: spec.providerConfigRef.name
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.id
+          toFieldPath: status.pipeline.processGroupId
+
+    # ──────────────────────────────────────────────
+    # 2. GenerateFlowFile processor
+    # ──────────────────────────────────────────────
+    - name: generate-flowfile
+      base:
+        apiVersion: nifi.crossplane.io/v1alpha1
+        kind: Processor
+        spec:
+          forProvider:
+            type: org.apache.nifi.processors.standard.GenerateFlowFile
+            name: "Generate FlowFile"
+            position:
+              "x": 400
+              "y": 100
+            config:
+              schedulingStrategy: TIMER_DRIVEN
+              schedulingPeriod: "5 sec"
+              concurrentlySchedulableTaskCount: 1
+              properties:
+                File Size: "1 KB"
+                Batch Size: "1"
+              comments: "Generates test flow files"
+            desiredState: STOPPED
+          providerConfigRef:
+            name: default
+            kind: ProviderConfig
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.pipeline.processGroupId
+          toFieldPath: spec.forProvider.parentGroupId
+          policy:
+            fromFieldPath: Required
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.providerConfigRefName
+          toFieldPath: spec.providerConfigRef.name
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.id
+          toFieldPath: status.pipeline.generateFlowFileId
+
+    # ──────────────────────────────────────────────
+    # 3. ReplaceText processor — replaces content
+    #    with "Eyal Gever"
+    # ──────────────────────────────────────────────
+    - name: replace-text
+      base:
+        apiVersion: nifi.crossplane.io/v1alpha1
+        kind: Processor
+        spec:
+          forProvider:
+            type: org.apache.nifi.processors.standard.ReplaceText
+            name: "Replace Text with Eyal Gever"
+            position:
+              "x": 400
+              "y": 400
+            config:
+              properties:
+                Replacement Value: "Eyal Gever"
+                Replacement Strategy: "Always Replace"
+              autoTerminatedRelationships:
+                - failure
+              comments: "Replaces flow file content with 'Eyal Gever'"
+            desiredState: STOPPED
+          providerConfigRef:
+            name: default
+            kind: ProviderConfig
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.pipeline.processGroupId
+          toFieldPath: spec.forProvider.parentGroupId
+          policy:
+            fromFieldPath: Required
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.providerConfigRefName
+          toFieldPath: spec.providerConfigRef.name
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.id
+          toFieldPath: status.pipeline.replaceTextId
+
+    # ──────────────────────────────────────────────
+    # 4. LogAttribute processor — logs the content
+    # ──────────────────────────────────────────────
+    - name: log-attribute
+      base:
+        apiVersion: nifi.crossplane.io/v1alpha1
+        kind: Processor
+        spec:
+          forProvider:
+            type: org.apache.nifi.processors.standard.LogAttribute
+            name: "Log Eyal Gever"
+            position:
+              "x": 400
+              "y": 700
+            config:
+              properties:
+                Log Level: "info"
+                Log Payload: "true"
+              autoTerminatedRelationships:
+                - success
+              comments: "Logs the Eyal Gever content"
+            desiredState: STOPPED
+          providerConfigRef:
+            name: default
+            kind: ProviderConfig
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.pipeline.processGroupId
+          toFieldPath: spec.forProvider.parentGroupId
+          policy:
+            fromFieldPath: Required
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.providerConfigRefName
+          toFieldPath: spec.providerConfigRef.name
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.id
+          toFieldPath: status.pipeline.logAttributeId
+
+    # ──────────────────────────────────────────────
+    # 5. Connection: GenerateFlowFile → ReplaceText
+    # ──────────────────────────────────────────────
+    - name: conn-generate-to-replace
+      base:
+        apiVersion: nifi.crossplane.io/v1alpha1
+        kind: Connection
+        spec:
+          forProvider:
+            name: "GenerateFlowFile to ReplaceText"
+            selectedRelationships:
+              - success
+            source:
+              type: PROCESSOR
+            destination:
+              type: PROCESSOR
+            backPressureObjectThreshold: 10000
+            backPressureDataSizeThreshold: "1 GB"
+          providerConfigRef:
+            name: default
+            kind: ProviderConfig
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.pipeline.processGroupId
+          toFieldPath: spec.forProvider.parentGroupId
+          policy:
+            fromFieldPath: Required
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.pipeline.processGroupId
+          toFieldPath: spec.forProvider.source.groupId
+          policy:
+            fromFieldPath: Required
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.pipeline.processGroupId
+          toFieldPath: spec.forProvider.destination.groupId
+          policy:
+            fromFieldPath: Required
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.pipeline.generateFlowFileId
+          toFieldPath: spec.forProvider.source.id
+          policy:
+            fromFieldPath: Required
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.pipeline.replaceTextId
+          toFieldPath: spec.forProvider.destination.id
+          policy:
+            fromFieldPath: Required
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.providerConfigRefName
+          toFieldPath: spec.providerConfigRef.name
+
+    # ──────────────────────────────────────────────
+    # 6. Connection: ReplaceText → LogAttribute
+    # ──────────────────────────────────────────────
+    - name: conn-replace-to-log
+      base:
+        apiVersion: nifi.crossplane.io/v1alpha1
+        kind: Connection
+        spec:
+          forProvider:
+            name: "ReplaceText to LogAttribute"
+            selectedRelationships:
+              - success
+            source:
+              type: PROCESSOR
+            destination:
+              type: PROCESSOR
+            backPressureObjectThreshold: 10000
+            backPressureDataSizeThreshold: "1 GB"
+          providerConfigRef:
+            name: default
+            kind: ProviderConfig
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.pipeline.processGroupId
+          toFieldPath: spec.forProvider.parentGroupId
+          policy:
+            fromFieldPath: Required
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.pipeline.processGroupId
+          toFieldPath: spec.forProvider.source.groupId
+          policy:
+            fromFieldPath: Required
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.pipeline.processGroupId
+          toFieldPath: spec.forProvider.destination.groupId
+          policy:
+            fromFieldPath: Required
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.pipeline.replaceTextId
+          toFieldPath: spec.forProvider.source.id
+          policy:
+            fromFieldPath: Required
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.pipeline.logAttributeId
+          toFieldPath: spec.forProvider.destination.id
+          policy:
+            fromFieldPath: Required
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.providerConfigRefName
+          toFieldPath: spec.providerConfigRef.name
