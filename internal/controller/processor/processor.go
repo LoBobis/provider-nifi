@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"strings"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
@@ -154,19 +155,19 @@ func (e *external) Update(ctx context.Context, cr *v1alpha1.Processor) (managed.
 	externalName := meta.GetExternalName(cr)
 
 	// NiFi requires processors to be stopped before configuration changes.
-	// Stop the processor first if it's running.
-	if cr.Status.AtProvider.RunStatus == "RUNNING" {
-		if err := e.nifi.UpdateProcessorRunStatus(externalName, "STOPPED", cr.Status.AtProvider.Version); err != nil {
-			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot stop processor before update")
-		}
-		// Refresh version after stopping
-		processor, err := e.nifi.GetProcessor(externalName)
-		if err != nil {
-			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot get processor after stopping")
-		}
-		if processor.Revision != nil && processor.Revision.Version != nil {
-			cr.Status.AtProvider.Version = *processor.Revision.Version
-		}
+	// Always stop first — NiFi returns run status in mixed case ("Running")
+	// which may not match our uppercase constants, and stopping an already-
+	// stopped processor is a safe no-op.
+	if err := e.nifi.UpdateProcessorRunStatus(externalName, "STOPPED", cr.Status.AtProvider.Version); err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot stop processor before update")
+	}
+	// Refresh version after stopping (NiFi increments revision on state changes)
+	processor, err := e.nifi.GetProcessor(externalName)
+	if err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot get processor after stopping")
+	}
+	if processor.Revision != nil && processor.Revision.Version != nil {
+		cr.Status.AtProvider.Version = *processor.Revision.Version
 	}
 
 	entity := buildProcessorEntity(cr)
@@ -305,12 +306,12 @@ func isProcessorUpToDate(cr *v1alpha1.Processor, processor *nigoapi.ProcessorEnt
 		}
 	}
 
-	// Check run status
+	// Check run status (NiFi returns mixed case like "Running", we use uppercase "RUNNING")
 	desiredState := p.DesiredState
 	if desiredState == "" {
 		desiredState = "STOPPED"
 	}
-	if processor.Status != nil && processor.Status.RunStatus != desiredState {
+	if processor.Status != nil && !strings.EqualFold(processor.Status.RunStatus, desiredState) {
 		return false
 	}
 
