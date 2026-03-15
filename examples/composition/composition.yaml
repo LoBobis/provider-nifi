@@ -29,7 +29,7 @@ spec:
                     "x": 0
                     "y": 0
                   comments: "Pipeline: GenerateFlowFile -> ReplaceText (Eyal Gever) -> LogAttribute"
-                  desiredState: STOPPED
+                  desiredState: RUNNING
                 providerConfigRef:
                   name: default
                   kind: ProviderConfig
