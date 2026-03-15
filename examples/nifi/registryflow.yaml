@@ -1,0 +1,18 @@
+apiVersion: nifi.crossplane.io/v1alpha1
+kind: RegistryFlow
+metadata:
+  name: etl-pipeline-v3
+  namespace: crossplane-system
+spec:
+  forProvider:
+    parentGroupId: "root"
+    registryId: "<nifi-registry-client-id>"
+    bucketId: "<registry-bucket-id>"
+    flowId: "<versioned-flow-id>"
+    flowVersion: 3
+    position:
+      x: 800
+      y: 200
+    desiredState: RUNNING
+  providerConfigRef:
+    name: default

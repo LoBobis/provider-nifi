@@ -1,0 +1,24 @@
+apiVersion: nifi.crossplane.io/v1alpha1
+kind: Connection
+metadata:
+  name: generate-to-log
+  namespace: crossplane-system
+spec:
+  forProvider:
+    parentGroupId: "root"
+    source:
+      id: "<source-processor-id>"
+      type: PROCESSOR
+      groupId: "root"
+    destination:
+      id: "<destination-processor-id>"
+      type: PROCESSOR
+      groupId: "root"
+    selectedRelationships:
+      - success
+    name: "Generate to Log"
+    backPressureObjectThreshold: 10000
+    backPressureDataSizeThreshold: "1 GB"
+    flowFileExpiration: "0 sec"
+  providerConfigRef:
+    name: default

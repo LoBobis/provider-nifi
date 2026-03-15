@@ -4,18 +4,18 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-  name: mytypes.sample.template.crossplane.io
+  name: registryflows.nifi.crossplane.io
 spec:
-  group: sample.template.crossplane.io
+  group: nifi.crossplane.io
   names:
     categories:
     - crossplane
     - managed
-    - template
-    kind: MyType
-    listKind: MyTypeList
-    plural: mytypes
-    singular: mytype
+    - nifi
+    kind: RegistryFlow
+    listKind: RegistryFlowList
+    plural: registryflows
+    singular: registryflow
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -34,7 +34,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: A MyType is an example API type.
+        description: A RegistryFlow is a managed resource that represents a NiFi flow
+          imported from a Registry.
         properties:
           apiVersion:
             description: |-
@@ -54,15 +55,58 @@ spec:
           metadata:
             type: object
           spec:
-            description: A MyTypeSpec defines the desired state of a MyType.
+            description: A RegistryFlowSpec defines the desired state of a NiFi Registry
+              Flow import.
             properties:
               forProvider:
-                description: MyTypeParameters are the configurable fields of a MyType.
+                description: RegistryFlowParameters are the configurable fields for
+                  importing a flow from a NiFi Registry.
                 properties:
-                  configurableField:
+                  bucketId:
+                    description: BucketID is the ID of the bucket in the registry.
+                    type: string
+                  desiredState:
+                    default: STOPPED
+                    description: DesiredState is the desired run status of the imported
+                      flow's processors.
+                    enum:
+                    - RUNNING
+                    - STOPPED
+                    - DISABLED
+                    type: string
+                  flowId:
+                    description: FlowID is the ID of the versioned flow in the registry.
+                    type: string
+                  flowVersion:
+                    description: |-
+                      FlowVersion is the version of the flow to import.
+                      Use -1 or 0 for the latest version.
+                    format: int32
+                    type: integer
+                  parentGroupId:
+                    description: ParentGroupID is the ID of the parent process group
+                      where the flow will be imported.
+                    type: string
+                  position:
+                    description: Position is the position of the imported process
+                      group on the canvas.
+                    properties:
+                      x:
+                        description: X is the x coordinate.
+                        type: number
+                      "y":
+                        description: Y is the y coordinate.
+                        type: number
+                    type: object
+                  registryId:
+                    description: RegistryID is the ID of the NiFi Registry client
+                      configured in NiFi.
                     type: string
                 required:
-                - configurableField
+                - bucketId
+                - flowId
+                - parentGroupId
+                - registryId
                 type: object
               managementPolicies:
                 default:
@@ -123,17 +167,34 @@ spec:
             - forProvider
             type: object
           status:
-            description: A MyTypeStatus represents the observed state of a MyType.
+            description: A RegistryFlowStatus represents the observed state of a NiFi
+              Registry Flow import.
             properties:
               atProvider:
-                description: MyTypeObservation are the observable fields of a MyType.
+                description: RegistryFlowObservation are the observable fields of
+                  a NiFi Registry Flow.
                 properties:
-                  configurableField:
+                  currentVersion:
+                    description: CurrentVersion is the currently deployed flow version.
+                    format: int32
+                    type: integer
+                  latestVersion:
+                    description: LatestVersion is the latest available version in
+                      the registry.
+                    format: int32
+                    type: integer
+                  processGroupId:
+                    description: ProcessGroupID is the NiFi-assigned ID of the created
+                      process group.
                     type: string
-                  observableField:
-                    type: string
-                required:
-                - configurableField
+                  stale:
+                    description: Stale indicates whether the deployed version is behind
+                      the latest.
+                    type: boolean
+                  version:
+                    description: Version is the revision version for optimistic locking.
+                    format: int64
+                    type: integer
                 type: object
               conditions:
                 description: Conditions of the resource.

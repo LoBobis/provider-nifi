@@ -1,0 +1,24 @@
+apiVersion: nifi.crossplane.io/v1alpha1
+kind: ParameterContext
+metadata:
+  name: production-params
+  namespace: crossplane-system
+spec:
+  forProvider:
+    name: Production Parameters
+    description: "Parameter context for production environment"
+    parameters:
+      - name: kafka.broker
+        value: "kafka.prod.example.com:9092"
+        description: "Kafka broker address"
+        sensitive: false
+      - name: kafka.topic
+        value: "events"
+        description: "Kafka topic name"
+        sensitive: false
+      - name: db.password
+        value: "supersecret"
+        description: "Database password"
+        sensitive: true
+  providerConfigRef:
+    name: default

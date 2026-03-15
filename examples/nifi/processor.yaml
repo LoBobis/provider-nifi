@@ -1,0 +1,26 @@
+apiVersion: nifi.crossplane.io/v1alpha1
+kind: Processor
+metadata:
+  name: generate-flowfile
+  namespace: crossplane-system
+spec:
+  forProvider:
+    parentGroupId: "root"
+    type: org.apache.nifi.processors.standard.GenerateFlowFile
+    name: Generate FlowFile
+    position:
+      x: 100
+      y: 100
+    config:
+      schedulingStrategy: TIMER_DRIVEN
+      schedulingPeriod: "5 sec"
+      concurrentlySchedulableTaskCount: 1
+      autoTerminatedRelationships:
+        - success
+      properties:
+        File Size: "1 KB"
+        Batch Size: "1"
+      comments: "Generates test flow files"
+    desiredState: STOPPED
+  providerConfigRef:
+    name: default

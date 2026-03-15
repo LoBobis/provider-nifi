@@ -1,38 +1,33 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: default
+  name: crossplane-system
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  namespace: default
-  name: example-provider-secret
+  namespace: crossplane-system
+  name: nifi-credentials
 type: Opaque
-data:
-  credentials: QkFTRTY0RU5DT0RFRF9QUk9WSURFUl9DUkVEUwo=
+stringData:
+  credentials: |
+    {
+      "url": "https://nifi.example.com:8443/nifi-api",
+      "username": "admin",
+      "password": "changeme",
+      "tlsSkipVerify": true
+    }
 ---
-apiVersion: template.crossplane.io/v1alpha1
+apiVersion: nifi.crossplane.io/v1alpha1
 kind: ProviderConfig
 metadata:
-  name: example
-  namespace: default
+  name: default
+  namespace: crossplane-system
 spec:
+  nifiVersion: 2
   credentials:
     source: Secret
     secretRef:
-      namespace: default
-      name: example-provider-secret
-      key: credentials
----
-apiVersion: template.crossplane.io/v1alpha1
-kind: ClusterProviderConfig
-metadata:
-  name: example
-spec:
-  credentials:
-    source: Secret
-    secretRef:
-      namespace: default
-      name: example-provider-secret
+      namespace: crossplane-system
+      name: nifi-credentials
       key: credentials
