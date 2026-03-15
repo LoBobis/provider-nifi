@@ -20,9 +20,23 @@ type ProviderCredentials struct {
 	xpv1.CommonCredentialSelectors `json:",inline"`
 }
 
+// ProviderConfigSpec contains NiFi provider configuration.
 type ProviderConfigSpec struct {
-	// Credentials required to authenticate to this provider.
+	// Credentials required to authenticate to NiFi.
+	// The secret should contain a JSON object with fields:
+	// url (string): NiFi API base URL (e.g. https://nifi:8443/nifi-api)
+	// username (string, optional): Basic auth username
+	// password (string, optional): Basic auth password
+	// token (string, optional): Bearer token for authentication
+	// tlsSkipVerify (bool, optional): Skip TLS certificate verification
 	Credentials ProviderCredentials `json:"credentials"`
+
+	// NiFiVersion specifies the major NiFi version (1 or 2).
+	// This determines which API compatibility mode to use.
+	// +kubebuilder:validation:Enum=1;2
+	// +kubebuilder:default=2
+	// +optional
+	NiFiVersion int `json:"nifiVersion,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -31,8 +45,8 @@ type ProviderConfigSpec struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="SECRET-NAME",type="string",JSONPath=".spec.credentials.secretRef.name",priority=1
-// +kubebuilder:resource:scope=Namespaced,categories={crossplane,provider,template}
-// A ProviderConfig configures a Helm 'provider', i.e. a connection to a particular
+// +kubebuilder:resource:scope=Namespaced,categories={crossplane,provider,nifi}
+// A ProviderConfig configures a NiFi provider.
 type ProviderConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -43,7 +57,7 @@ type ProviderConfig struct {
 
 // +kubebuilder:object:root=true
 
-// ProviderConfigList contains a list of Provider
+// ProviderConfigList contains a list of ProviderConfig
 type ProviderConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -57,7 +71,7 @@ type ProviderConfigList struct {
 // +kubebuilder:printcolumn:name="CONFIG-NAME",type="string",JSONPath=".providerConfigRef.name"
 // +kubebuilder:printcolumn:name="RESOURCE-KIND",type="string",JSONPath=".resourceRef.kind"
 // +kubebuilder:printcolumn:name="RESOURCE-NAME",type="string",JSONPath=".resourceRef.name"
-// +kubebuilder:resource:scope=Namespaced,categories={crossplane,provider,template}
+// +kubebuilder:resource:scope=Namespaced,categories={crossplane,provider,nifi}
 // A ProviderConfigUsage indicates that a resource is using a ProviderConfig.
 type ProviderConfigUsage struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -80,8 +94,8 @@ type ProviderConfigUsageList struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="SECRET-NAME",type="string",JSONPath=".spec.credentials.secretRef.name",priority=1
-// +kubebuilder:resource:scope=Cluster,categories={crossplane,provider,template}
-// A ClusterProviderConfig configures a Template provider.
+// +kubebuilder:resource:scope=Cluster,categories={crossplane,provider,nifi}
+// A ClusterProviderConfig configures a NiFi provider at the cluster level.
 type ClusterProviderConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -92,7 +106,7 @@ type ClusterProviderConfig struct {
 
 // +kubebuilder:object:root=true
 
-// ClusterProviderConfigList contains a list of ProviderConfig.
+// ClusterProviderConfigList contains a list of ClusterProviderConfig.
 type ClusterProviderConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -106,7 +120,7 @@ type ClusterProviderConfigList struct {
 // +kubebuilder:printcolumn:name="CONFIG-NAME",type="string",JSONPath=".providerConfigRef.name"
 // +kubebuilder:printcolumn:name="RESOURCE-KIND",type="string",JSONPath=".resourceRef.kind"
 // +kubebuilder:printcolumn:name="RESOURCE-NAME",type="string",JSONPath=".resourceRef.name"
-// +kubebuilder:resource:scope=Cluster,categories={crossplane,provider,template}
+// +kubebuilder:resource:scope=Cluster,categories={crossplane,provider,nifi}
 // A ClusterProviderConfigUsage indicates that a resource is using a ClusterProviderConfig.
 type ClusterProviderConfigUsage struct {
 	metav1.TypeMeta   `json:",inline"`

@@ -4,14 +4,14 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-  name: providerconfigs.template.crossplane.io
+  name: providerconfigs.nifi.crossplane.io
 spec:
-  group: template.crossplane.io
+  group: nifi.crossplane.io
   names:
     categories:
     - crossplane
     - provider
-    - template
+    - nifi
     kind: ProviderConfig
     listKind: ProviderConfigList
     plural: providerconfigs
@@ -29,8 +29,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: A ProviderConfig configures a Helm 'provider', i.e. a connection
-          to a particular
+        description: A ProviderConfig configures a NiFi provider.
         properties:
           apiVersion:
             description: |-
@@ -50,9 +49,17 @@ spec:
           metadata:
             type: object
           spec:
+            description: ProviderConfigSpec contains NiFi provider configuration.
             properties:
               credentials:
-                description: Credentials required to authenticate to this provider.
+                description: |-
+                  Credentials required to authenticate to NiFi.
+                  The secret should contain a JSON object with fields:
+                  url (string): NiFi API base URL (e.g. https://nifi:8443/nifi-api)
+                  username (string, optional): Basic auth username
+                  password (string, optional): Basic auth password
+                  token (string, optional): Bearer token for authentication
+                  tlsSkipVerify (bool, optional): Skip TLS certificate verification
                 properties:
                   env:
                     description: |-
@@ -107,6 +114,15 @@ spec:
                 required:
                 - source
                 type: object
+              nifiVersion:
+                default: 2
+                description: |-
+                  NiFiVersion specifies the major NiFi version (1 or 2).
+                  This determines which API compatibility mode to use.
+                enum:
+                - 1
+                - 2
+                type: integer
             required:
             - credentials
             type: object

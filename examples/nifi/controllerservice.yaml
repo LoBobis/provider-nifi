@@ -1,0 +1,19 @@
+apiVersion: nifi.crossplane.io/v1alpha1
+kind: ControllerService
+metadata:
+  name: dbcp-connection-pool
+  namespace: crossplane-system
+spec:
+  forProvider:
+    parentGroupId: "root"
+    type: org.apache.nifi.dbcp.DBCPConnectionPool
+    name: Database Connection Pool
+    properties:
+      Database Connection URL: "jdbc:postgresql://db.example.com:5432/mydb"
+      Database Driver Class Name: "org.postgresql.Driver"
+      Database User: "nifi_user"
+    comments: "PostgreSQL connection pool"
+    desiredState: ENABLED
+  providerConfigRef:
+    name: default
+    kind: ProviderConfig

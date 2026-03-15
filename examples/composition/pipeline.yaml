@@ -1,0 +1,8 @@
+apiVersion: pipeline.nifi.crossplane.io/v1alpha1
+kind: NiFiPipeline
+metadata:
+  name: eyal-gever-pipeline
+  namespace: crossplane-system
+spec:
+  parentGroupId: "root"
+  providerConfigRefName: "default"

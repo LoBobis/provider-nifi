@@ -1,0 +1,17 @@
+apiVersion: nifi.crossplane.io/v1alpha1
+kind: ProcessGroup
+metadata:
+  name: my-data-pipeline
+  namespace: crossplane-system
+spec:
+  forProvider:
+    parentGroupId: "root"
+    name: My Data Pipeline
+    position:
+      "x": 400
+      "y": 200
+    comments: "A data processing pipeline managed by Crossplane"
+    desiredState: STOPPED
+  providerConfigRef:
+    name: default
+    kind: ProviderConfig
