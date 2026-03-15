@@ -28,7 +28,7 @@ spec:
                   position:
                     "x": 0
                     "y": 0
-                  comments: "Pipeline: GenerateFlowFile -> ReplaceText (Eyal Gever) -> LogAttribute"
+                  comments: "Pipeline: GenerateFlowFile -> HashContent (SHA-256) -> LogAttribute"
                   desiredState: RUNNING
                 providerConfigRef:
                   name: default
@@ -90,8 +90,8 @@ spec:
                 toFieldPath: status.pipeline.generateFlowFileId
 
           # ──────────────────────────────────────────────
-          # 3. ReplaceText processor — replaces content
-          #    with "Eyal Gever"
+          # 3. HashContent processor — hashes the content
+          #    with SHA-256 and stores hash as attribute
           # ──────────────────────────────────────────────
           - name: replace-text
             base:
@@ -99,18 +99,18 @@ spec:
               kind: Processor
               spec:
                 forProvider:
-                  type: org.apache.nifi.processors.standard.ReplaceText
-                  name: "Replace Text with Eyal Gever"
+                  type: org.apache.nifi.processors.standard.HashContent
+                  name: "Hash Content SHA-256"
                   position:
                     "x": 400
                     "y": 400
                   config:
                     properties:
-                      Replacement Value: "Eyal Gever"
-                      Replacement Strategy: "Always Replace"
+                      Hash Attribute: "content.hash"
+                      Hash Algorithm: "SHA-256"
                     autoTerminatedRelationships:
                       - failure
-                    comments: "Replaces flow file content with 'Eyal Gever'"
+                    comments: "Hashes flow file content with SHA-256"
                   desiredState: STOPPED
                 providerConfigRef:
                   name: default
@@ -141,7 +141,7 @@ spec:
               spec:
                 forProvider:
                   type: org.apache.nifi.processors.standard.LogAttribute
-                  name: "Log Eyal Gever"
+                  name: "Log Content Hash"
                   position:
                     "x": 400
                     "y": 700
@@ -151,7 +151,7 @@ spec:
                       Log Payload: "true"
                     autoTerminatedRelationships:
                       - success
-                    comments: "Logs the Eyal Gever content"
+                    comments: "Logs the SHA-256 content hash"
                   desiredState: STOPPED
                 providerConfigRef:
                   name: default
