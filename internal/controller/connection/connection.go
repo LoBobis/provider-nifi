@@ -103,6 +103,9 @@ func (e *external) Observe(ctx context.Context, cr *v1alpha1.Connection) (manage
 
 	conn, err := e.nifi.GetConnection(externalName)
 	if err != nil {
+		if nificlient.IsNotFound(err) {
+			return managed.ExternalObservation{ResourceExists: false}, nil
+		}
 		return managed.ExternalObservation{}, errors.Wrap(err, "cannot get connection")
 	}
 

@@ -164,46 +164,43 @@ func (c *NiFiClient) Context() context.Context {
 
 // GetProcessor retrieves a processor by ID.
 func (c *NiFiClient) GetProcessor(id string) (*nigoapi.ProcessorEntity, error) {
-	entity, _, _, err := c.client.ProcessorsApi.GetProcessor(c.ctx, id)
+	entity, resp, _, err := c.client.ProcessorsApi.GetProcessor(c.ctx, id)
 	if err != nil {
-		return nil, wrapNiFiError(err, "get processor %s", id)
+		return nil, wrapNiFiError(err, resp, "get processor %s", id)
 	}
 	return &entity, nil
 }
 
 // CreateProcessor creates a new processor in the given process group.
-// nigoapi signature: CreateProcessor(ctx, body ProcessorEntity, id string)
 func (c *NiFiClient) CreateProcessor(parentGroupID string, entity nigoapi.ProcessorEntity) (*nigoapi.ProcessorEntity, error) {
-	result, _, _, err := c.client.ProcessGroupsApi.CreateProcessor(c.ctx, entity, parentGroupID)
+	result, resp, _, err := c.client.ProcessGroupsApi.CreateProcessor(c.ctx, entity, parentGroupID)
 	if err != nil {
-		return nil, wrapNiFiError(err, "create processor in group %s", parentGroupID)
+		return nil, wrapNiFiError(err, resp, "create processor in group %s", parentGroupID)
 	}
 	return &result, nil
 }
 
 // UpdateProcessor updates an existing processor.
-// nigoapi signature: UpdateProcessor(ctx, body ProcessorEntity, id string)
 func (c *NiFiClient) UpdateProcessor(entity nigoapi.ProcessorEntity) (*nigoapi.ProcessorEntity, error) {
-	result, _, _, err := c.client.ProcessorsApi.UpdateProcessor(c.ctx, entity, entity.Id)
+	result, resp, _, err := c.client.ProcessorsApi.UpdateProcessor(c.ctx, entity, entity.Id)
 	if err != nil {
-		return nil, wrapNiFiError(err, "update processor %s", entity.Id)
+		return nil, wrapNiFiError(err, resp, "update processor %s", entity.Id)
 	}
 	return &result, nil
 }
 
 // DeleteProcessor deletes a processor by ID.
 func (c *NiFiClient) DeleteProcessor(id string, version int64) error {
-	_, _, _, err := c.client.ProcessorsApi.DeleteProcessor(c.ctx, id, &nigoapi.ProcessorsApiDeleteProcessorOpts{
+	_, resp, _, err := c.client.ProcessorsApi.DeleteProcessor(c.ctx, id, &nigoapi.ProcessorsApiDeleteProcessorOpts{
 		Version: optionalStringFromInt64(version),
 	})
 	if err != nil {
-		return wrapNiFiError(err, "delete processor %s", id)
+		return wrapNiFiError(err, resp, "delete processor %s", id)
 	}
 	return nil
 }
 
 // UpdateProcessorRunStatus updates the run status of a processor.
-// nigoapi method: UpdateRunStatus4(ctx, body ProcessorRunStatusEntity, id string)
 func (c *NiFiClient) UpdateProcessorRunStatus(id string, state string, version int64) error {
 	entity := nigoapi.ProcessorRunStatusEntity{
 		State: state,
@@ -211,9 +208,9 @@ func (c *NiFiClient) UpdateProcessorRunStatus(id string, state string, version i
 			Version: &version,
 		},
 	}
-	_, _, _, err := c.client.ProcessorsApi.UpdateRunStatus4(c.ctx, entity, id)
+	_, resp, _, err := c.client.ProcessorsApi.UpdateRunStatus4(c.ctx, entity, id)
 	if err != nil {
-		return wrapNiFiError(err, "update processor %s run status to %s", id, state)
+		return wrapNiFiError(err, resp, "update processor %s run status to %s", id, state)
 	}
 	return nil
 }
@@ -222,54 +219,51 @@ func (c *NiFiClient) UpdateProcessorRunStatus(id string, state string, version i
 
 // GetProcessGroup retrieves a process group by ID.
 func (c *NiFiClient) GetProcessGroup(id string) (*nigoapi.ProcessGroupEntity, error) {
-	entity, _, _, err := c.client.ProcessGroupsApi.GetProcessGroup(c.ctx, id)
+	entity, resp, _, err := c.client.ProcessGroupsApi.GetProcessGroup(c.ctx, id)
 	if err != nil {
-		return nil, wrapNiFiError(err, "get process group %s", id)
+		return nil, wrapNiFiError(err, resp, "get process group %s", id)
 	}
 	return &entity, nil
 }
 
 // CreateProcessGroup creates a new process group.
-// nigoapi signature: CreateProcessGroup(ctx, body ProcessGroupEntity, id string, opts)
 func (c *NiFiClient) CreateProcessGroup(parentGroupID string, entity nigoapi.ProcessGroupEntity) (*nigoapi.ProcessGroupEntity, error) {
-	result, _, _, err := c.client.ProcessGroupsApi.CreateProcessGroup(c.ctx, entity, parentGroupID, nil)
+	result, resp, _, err := c.client.ProcessGroupsApi.CreateProcessGroup(c.ctx, entity, parentGroupID, nil)
 	if err != nil {
-		return nil, wrapNiFiError(err, "create process group in %s", parentGroupID)
+		return nil, wrapNiFiError(err, resp, "create process group in %s", parentGroupID)
 	}
 	return &result, nil
 }
 
 // UpdateProcessGroup updates an existing process group.
-// nigoapi signature: UpdateProcessGroup(ctx, body ProcessGroupEntity, id string)
 func (c *NiFiClient) UpdateProcessGroup(entity nigoapi.ProcessGroupEntity) (*nigoapi.ProcessGroupEntity, error) {
-	result, _, _, err := c.client.ProcessGroupsApi.UpdateProcessGroup(c.ctx, entity, entity.Id)
+	result, resp, _, err := c.client.ProcessGroupsApi.UpdateProcessGroup(c.ctx, entity, entity.Id)
 	if err != nil {
-		return nil, wrapNiFiError(err, "update process group %s", entity.Id)
+		return nil, wrapNiFiError(err, resp, "update process group %s", entity.Id)
 	}
 	return &result, nil
 }
 
 // DeleteProcessGroup deletes a process group by ID.
 func (c *NiFiClient) DeleteProcessGroup(id string, version int64) error {
-	_, _, _, err := c.client.ProcessGroupsApi.RemoveProcessGroup(c.ctx, id, &nigoapi.ProcessGroupsApiRemoveProcessGroupOpts{
+	_, resp, _, err := c.client.ProcessGroupsApi.RemoveProcessGroup(c.ctx, id, &nigoapi.ProcessGroupsApiRemoveProcessGroupOpts{
 		Version: optionalStringFromInt64(version),
 	})
 	if err != nil {
-		return wrapNiFiError(err, "delete process group %s", id)
+		return wrapNiFiError(err, resp, "delete process group %s", id)
 	}
 	return nil
 }
 
 // ScheduleProcessGroup starts or stops all processors in a process group.
-// nigoapi signature: ScheduleComponents(ctx, body ScheduleComponentsEntity, id string)
 func (c *NiFiClient) ScheduleProcessGroup(id string, state string) error {
 	entity := nigoapi.ScheduleComponentsEntity{
 		Id:    id,
 		State: state,
 	}
-	_, _, _, err := c.client.FlowApi.ScheduleComponents(c.ctx, entity, id)
+	_, resp, _, err := c.client.FlowApi.ScheduleComponents(c.ctx, entity, id)
 	if err != nil {
-		return wrapNiFiError(err, "schedule process group %s to %s", id, state)
+		return wrapNiFiError(err, resp, "schedule process group %s to %s", id, state)
 	}
 	return nil
 }
@@ -278,40 +272,38 @@ func (c *NiFiClient) ScheduleProcessGroup(id string, state string) error {
 
 // GetConnection retrieves a connection by ID.
 func (c *NiFiClient) GetConnection(id string) (*nigoapi.ConnectionEntity, error) {
-	entity, _, _, err := c.client.ConnectionsApi.GetConnection(c.ctx, id)
+	entity, resp, _, err := c.client.ConnectionsApi.GetConnection(c.ctx, id)
 	if err != nil {
-		return nil, wrapNiFiError(err, "get connection %s", id)
+		return nil, wrapNiFiError(err, resp, "get connection %s", id)
 	}
 	return &entity, nil
 }
 
 // CreateConnection creates a new connection.
-// nigoapi signature: CreateConnection(ctx, body ConnectionEntity, id string)
 func (c *NiFiClient) CreateConnection(parentGroupID string, entity nigoapi.ConnectionEntity) (*nigoapi.ConnectionEntity, error) {
-	result, _, _, err := c.client.ProcessGroupsApi.CreateConnection(c.ctx, entity, parentGroupID)
+	result, resp, _, err := c.client.ProcessGroupsApi.CreateConnection(c.ctx, entity, parentGroupID)
 	if err != nil {
-		return nil, wrapNiFiError(err, "create connection in group %s", parentGroupID)
+		return nil, wrapNiFiError(err, resp, "create connection in group %s", parentGroupID)
 	}
 	return &result, nil
 }
 
 // UpdateConnection updates an existing connection.
-// nigoapi signature: UpdateConnection(ctx, body ConnectionEntity, id string)
 func (c *NiFiClient) UpdateConnection(entity nigoapi.ConnectionEntity) (*nigoapi.ConnectionEntity, error) {
-	result, _, _, err := c.client.ConnectionsApi.UpdateConnection(c.ctx, entity, entity.Id)
+	result, resp, _, err := c.client.ConnectionsApi.UpdateConnection(c.ctx, entity, entity.Id)
 	if err != nil {
-		return nil, wrapNiFiError(err, "update connection %s", entity.Id)
+		return nil, wrapNiFiError(err, resp, "update connection %s", entity.Id)
 	}
 	return &result, nil
 }
 
 // DeleteConnection deletes a connection by ID.
 func (c *NiFiClient) DeleteConnection(id string, version int64) error {
-	_, _, _, err := c.client.ConnectionsApi.DeleteConnection(c.ctx, id, &nigoapi.ConnectionsApiDeleteConnectionOpts{
+	_, resp, _, err := c.client.ConnectionsApi.DeleteConnection(c.ctx, id, &nigoapi.ConnectionsApiDeleteConnectionOpts{
 		Version: optionalStringFromInt64(version),
 	})
 	if err != nil {
-		return wrapNiFiError(err, "delete connection %s", id)
+		return wrapNiFiError(err, resp, "delete connection %s", id)
 	}
 	return nil
 }
@@ -319,48 +311,44 @@ func (c *NiFiClient) DeleteConnection(id string, version int64) error {
 // --- Controller Service Operations ---
 
 // GetControllerService retrieves a controller service by ID.
-// nigoapi signature: GetControllerService(ctx, id string, opts)
 func (c *NiFiClient) GetControllerService(id string) (*nigoapi.ControllerServiceEntity, error) {
-	entity, _, _, err := c.client.ControllerServicesApi.GetControllerService(c.ctx, id, nil)
+	entity, resp, _, err := c.client.ControllerServicesApi.GetControllerService(c.ctx, id, nil)
 	if err != nil {
-		return nil, wrapNiFiError(err, "get controller service %s", id)
+		return nil, wrapNiFiError(err, resp, "get controller service %s", id)
 	}
 	return &entity, nil
 }
 
 // CreateControllerService creates a new controller service.
-// nigoapi method: CreateControllerService1(ctx, body ControllerServiceEntity, id string)
 func (c *NiFiClient) CreateControllerService(parentGroupID string, entity nigoapi.ControllerServiceEntity) (*nigoapi.ControllerServiceEntity, error) {
-	result, _, _, err := c.client.ProcessGroupsApi.CreateControllerService1(c.ctx, entity, parentGroupID)
+	result, resp, _, err := c.client.ProcessGroupsApi.CreateControllerService1(c.ctx, entity, parentGroupID)
 	if err != nil {
-		return nil, wrapNiFiError(err, "create controller service in group %s", parentGroupID)
+		return nil, wrapNiFiError(err, resp, "create controller service in group %s", parentGroupID)
 	}
 	return &result, nil
 }
 
 // UpdateControllerService updates an existing controller service.
-// nigoapi signature: UpdateControllerService(ctx, body ControllerServiceEntity, id string)
 func (c *NiFiClient) UpdateControllerService(entity nigoapi.ControllerServiceEntity) (*nigoapi.ControllerServiceEntity, error) {
-	result, _, _, err := c.client.ControllerServicesApi.UpdateControllerService(c.ctx, entity, entity.Id)
+	result, resp, _, err := c.client.ControllerServicesApi.UpdateControllerService(c.ctx, entity, entity.Id)
 	if err != nil {
-		return nil, wrapNiFiError(err, "update controller service %s", entity.Id)
+		return nil, wrapNiFiError(err, resp, "update controller service %s", entity.Id)
 	}
 	return &result, nil
 }
 
 // DeleteControllerService deletes a controller service by ID.
 func (c *NiFiClient) DeleteControllerService(id string, version int64) error {
-	_, _, _, err := c.client.ControllerServicesApi.RemoveControllerService(c.ctx, id, &nigoapi.ControllerServicesApiRemoveControllerServiceOpts{
+	_, resp, _, err := c.client.ControllerServicesApi.RemoveControllerService(c.ctx, id, &nigoapi.ControllerServicesApiRemoveControllerServiceOpts{
 		Version: optionalStringFromInt64(version),
 	})
 	if err != nil {
-		return wrapNiFiError(err, "delete controller service %s", id)
+		return wrapNiFiError(err, resp, "delete controller service %s", id)
 	}
 	return nil
 }
 
 // UpdateControllerServiceRunStatus enables or disables a controller service.
-// nigoapi method: UpdateRunStatus1(ctx, body ControllerServiceRunStatusEntity, id string)
 func (c *NiFiClient) UpdateControllerServiceRunStatus(id string, state string, version int64) error {
 	entity := nigoapi.ControllerServiceRunStatusEntity{
 		State: state,
@@ -368,9 +356,9 @@ func (c *NiFiClient) UpdateControllerServiceRunStatus(id string, state string, v
 			Version: &version,
 		},
 	}
-	_, _, _, err := c.client.ControllerServicesApi.UpdateRunStatus1(c.ctx, entity, id)
+	_, resp, _, err := c.client.ControllerServicesApi.UpdateRunStatus1(c.ctx, entity, id)
 	if err != nil {
-		return wrapNiFiError(err, "update controller service %s state to %s", id, state)
+		return wrapNiFiError(err, resp, "update controller service %s state to %s", id, state)
 	}
 	return nil
 }
@@ -379,39 +367,38 @@ func (c *NiFiClient) UpdateControllerServiceRunStatus(id string, state string, v
 
 // GetParameterContext retrieves a parameter context by ID.
 func (c *NiFiClient) GetParameterContext(id string) (*nigoapi.ParameterContextEntity, error) {
-	entity, _, _, err := c.client.ParameterContextsApi.GetParameterContext(c.ctx, id, &nigoapi.ParameterContextsApiGetParameterContextOpts{})
+	entity, resp, _, err := c.client.ParameterContextsApi.GetParameterContext(c.ctx, id, &nigoapi.ParameterContextsApiGetParameterContextOpts{})
 	if err != nil {
-		return nil, wrapNiFiError(err, "get parameter context %s", id)
+		return nil, wrapNiFiError(err, resp, "get parameter context %s", id)
 	}
 	return &entity, nil
 }
 
 // CreateParameterContext creates a new parameter context.
 func (c *NiFiClient) CreateParameterContext(entity nigoapi.ParameterContextEntity) (*nigoapi.ParameterContextEntity, error) {
-	result, _, _, err := c.client.ParameterContextsApi.CreateParameterContext(c.ctx, entity)
+	result, resp, _, err := c.client.ParameterContextsApi.CreateParameterContext(c.ctx, entity)
 	if err != nil {
-		return nil, wrapNiFiError(err, "create parameter context")
+		return nil, wrapNiFiError(err, resp, "create parameter context")
 	}
 	return &result, nil
 }
 
 // UpdateParameterContext updates an existing parameter context.
-// nigoapi signature: UpdateParameterContext(ctx, body ParameterContextEntity, id string)
 func (c *NiFiClient) UpdateParameterContext(entity nigoapi.ParameterContextEntity) (*nigoapi.ParameterContextEntity, error) {
-	result, _, _, err := c.client.ParameterContextsApi.UpdateParameterContext(c.ctx, entity, entity.Id)
+	result, resp, _, err := c.client.ParameterContextsApi.UpdateParameterContext(c.ctx, entity, entity.Id)
 	if err != nil {
-		return nil, wrapNiFiError(err, "update parameter context %s", entity.Id)
+		return nil, wrapNiFiError(err, resp, "update parameter context %s", entity.Id)
 	}
 	return &result, nil
 }
 
 // DeleteParameterContext deletes a parameter context by ID.
 func (c *NiFiClient) DeleteParameterContext(id string, version int64) error {
-	_, _, _, err := c.client.ParameterContextsApi.DeleteParameterContext(c.ctx, id, &nigoapi.ParameterContextsApiDeleteParameterContextOpts{
+	_, resp, _, err := c.client.ParameterContextsApi.DeleteParameterContext(c.ctx, id, &nigoapi.ParameterContextsApiDeleteParameterContextOpts{
 		Version: optionalStringFromInt64(version),
 	})
 	if err != nil {
-		return wrapNiFiError(err, "delete parameter context %s", id)
+		return wrapNiFiError(err, resp, "delete parameter context %s", id)
 	}
 	return nil
 }
@@ -443,37 +430,58 @@ func (c *NiFiClient) ImportFlowFromRegistry(parentGroupID string, registryID, bu
 		},
 	}
 
-	result, _, _, err := c.client.ProcessGroupsApi.CreateProcessGroup(c.ctx, entity, parentGroupID, nil)
+	result, resp, _, err := c.client.ProcessGroupsApi.CreateProcessGroup(c.ctx, entity, parentGroupID, nil)
 	if err != nil {
-		return nil, wrapNiFiError(err, "import flow from registry to group %s", parentGroupID)
+		return nil, wrapNiFiError(err, resp, "import flow from registry to group %s", parentGroupID)
 	}
 	return &result, nil
 }
 
 // GetVersionControlInfo retrieves version control information for a process group.
 func (c *NiFiClient) GetVersionControlInfo(processGroupID string) (*nigoapi.VersionControlInformationEntity, error) {
-	entity, _, _, err := c.client.VersionsApi.GetVersionInformation(c.ctx, processGroupID)
+	entity, resp, _, err := c.client.VersionsApi.GetVersionInformation(c.ctx, processGroupID)
 	if err != nil {
-		return nil, wrapNiFiError(err, "get version control info for %s", processGroupID)
+		return nil, wrapNiFiError(err, resp, "get version control info for %s", processGroupID)
 	}
 	return &entity, nil
 }
 
 // ChangeFlowVersion initiates a version control update to change the deployed flow version.
-// nigoapi method: InitiateVersionControlUpdate(ctx, body VersionControlInformationEntity, id string)
 func (c *NiFiClient) ChangeFlowVersion(processGroupID string, vci nigoapi.VersionControlInformationEntity) error {
-	_, _, _, err := c.client.VersionsApi.InitiateVersionControlUpdate(c.ctx, vci, processGroupID)
+	_, resp, _, err := c.client.VersionsApi.InitiateVersionControlUpdate(c.ctx, vci, processGroupID)
 	if err != nil {
-		return wrapNiFiError(err, "change flow version for %s", processGroupID)
+		return wrapNiFiError(err, resp, "change flow version for %s", processGroupID)
 	}
 	return nil
 }
 
 // --- Utility Functions ---
 
+// NotFoundError is returned when a NiFi resource is not found (HTTP 404).
+type NotFoundError struct {
+	msg string
+}
+
+func (e *NotFoundError) Error() string {
+	return e.msg
+}
+
+// IsNotFound returns true if the error indicates a NiFi resource was not found.
+func IsNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	var nfe *NotFoundError
+	return errors.As(err, &nfe)
+}
+
 // wrapNiFiError wraps a NiFi API error with context.
-func wrapNiFiError(err error, format string, args ...interface{}) error {
+// If the HTTP response indicates a 404, it returns a NotFoundError.
+func wrapNiFiError(err error, resp *http.Response, format string, args ...interface{}) error {
 	msg := fmt.Sprintf(format, args...)
+	if resp != nil && resp.StatusCode == http.StatusNotFound {
+		return &NotFoundError{msg: fmt.Sprintf("NiFi resource not found: %s", msg)}
+	}
 	if swaggerErr, ok := err.(nigoapi.GenericSwaggerError); ok {
 		return errors.Wrapf(err, "NiFi API error: %s (body: %s)", msg, string(swaggerErr.Body()))
 	}
