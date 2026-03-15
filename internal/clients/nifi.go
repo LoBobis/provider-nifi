@@ -5,13 +5,29 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/antihax/optional"
 	"github.com/pkg/errors"
 
 	nigoapi "github.com/konpyutaika/nigoapi/pkg/nifi"
 )
+
+// bearerAuthTransport is an http.RoundTripper that injects a Bearer token
+// into the Authorization header of every outgoing request.
+type bearerAuthTransport struct {
+	token     string
+	transport http.RoundTripper
+}
+
+func (t *bearerAuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = req.Clone(req.Context())
+	req.Header.Set("Authorization", "Bearer "+t.token)
+	return t.transport.RoundTrip(req)
+}
 
 // NiFiConfig holds the configuration for connecting to a NiFi instance.
 type NiFiConfig struct {
@@ -54,25 +70,44 @@ func NewNiFiClient(credentialData []byte) (*NiFiClient, error) {
 }
 
 // NewNiFiClientFromConfig creates a new NiFi API client from a config struct.
+// If username/password are provided, it performs a token exchange via
+// POST /access/token to obtain a JWT, then configures the HTTP client
+// to inject Authorization: Bearer <token> on all subsequent requests.
 func NewNiFiClientFromConfig(cfg NiFiConfig) (*NiFiClient, error) {
-	apiCfg := nigoapi.NewConfiguration()
-	apiCfg.BasePath = cfg.URL
-
-	// Configure TLS
-	transport := &http.Transport{
+	// Base TLS transport used for all HTTP calls (including token exchange).
+	baseTransport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: cfg.TLSSkipVerify, //nolint:gosec
 		},
 	}
+
+	// Resolve the bearer token: either provided directly or obtained via
+	// username/password credentials.
+	token := cfg.Token
+	if token == "" && cfg.Username != "" && cfg.Password != "" {
+		var err error
+		token, err = fetchAccessToken(cfg.URL, cfg.Username, cfg.Password, baseTransport)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot obtain NiFi access token")
+		}
+	}
+
+	// Choose the transport: if we have a token, wrap with bearer auth;
+	// otherwise use the plain TLS transport (e.g. unsecured NiFi).
+	var transport http.RoundTripper = baseTransport
+	if token != "" {
+		transport = &bearerAuthTransport{
+			token:     token,
+			transport: baseTransport,
+		}
+	}
+
+	apiCfg := nigoapi.NewConfiguration()
+	apiCfg.BasePath = cfg.URL
 	apiCfg.HTTPClient = &http.Client{Transport: transport}
 
 	client := nigoapi.NewAPIClient(apiCfg)
-
-	// Build context with auth
 	ctx := context.Background()
-	if cfg.Token != "" {
-		ctx = context.WithValue(ctx, nigoapi.ContextAccessToken, cfg.Token)
-	}
 
 	return &NiFiClient{
 		client: client,
@@ -81,19 +116,43 @@ func NewNiFiClientFromConfig(cfg NiFiConfig) (*NiFiClient, error) {
 	}, nil
 }
 
-// Authenticate performs username/password authentication and stores the token.
-func (c *NiFiClient) Authenticate() error {
-	if c.config.Username == "" || c.config.Password == "" {
-		return nil
-	}
+// fetchAccessToken performs a POST to /access/token with URL-encoded
+// username/password credentials and returns the raw JWT string.
+func fetchAccessToken(baseURL, username, password string, transport http.RoundTripper) (string, error) {
+	tokenURL := strings.TrimSuffix(baseURL, "/") + "/access/token"
 
-	tokenStr, _, _, err := c.client.AccessApi.CreateAccessToken(c.ctx, &nigoapi.AccessApiCreateAccessTokenOpts{})
+	form := url.Values{}
+	form.Set("username", username)
+	form.Set("password", password)
+
+	req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
-		return errors.Wrap(err, "cannot authenticate to NiFi")
+		return "", errors.Wrap(err, "cannot build token request")
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	httpClient := &http.Client{Transport: transport}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", errors.Wrap(err, "token request failed")
+	}
+	defer resp.Body.Close() //nolint:errcheck
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", errors.Wrap(err, "cannot read token response body")
 	}
 
-	c.ctx = context.WithValue(c.ctx, nigoapi.ContextAccessToken, tokenStr)
-	return nil
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		return "", errors.Errorf("token request returned HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	token := strings.TrimSpace(string(body))
+	if token == "" {
+		return "", errors.New("NiFi returned an empty access token")
+	}
+
+	return token, nil
 }
 
 // Context returns the authentication context.
