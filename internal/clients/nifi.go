@@ -477,14 +477,30 @@ func IsNotFound(err error) bool {
 
 // wrapNiFiError wraps a NiFi API error with context.
 // If the HTTP response indicates a 404, it returns a NotFoundError.
+// nigoapi often returns nil for *http.Response on errors, so we also
+// detect 404 from the GenericSwaggerError string (e.g. "404 Not Found").
 func wrapNiFiError(err error, resp *http.Response, format string, args ...interface{}) error {
 	msg := fmt.Sprintf(format, args...)
+
+	// Check HTTP response status code first.
 	if resp != nil && resp.StatusCode == http.StatusNotFound {
 		return &NotFoundError{msg: fmt.Sprintf("NiFi resource not found: %s", msg)}
 	}
+
+	// When resp is nil, detect 404 from the swagger error string.
+	// GenericSwaggerError.Error() returns the HTTP status like "404 Not Found".
 	if swaggerErr, ok := err.(nigoapi.GenericSwaggerError); ok {
+		if strings.Contains(swaggerErr.Error(), "404") {
+			return &NotFoundError{msg: fmt.Sprintf("NiFi resource not found: %s", msg)}
+		}
 		return errors.Wrapf(err, "NiFi API error: %s (body: %s)", msg, string(swaggerErr.Body()))
 	}
+
+	// Fallback: check the raw error string for 404 indicators.
+	if strings.Contains(err.Error(), "404") {
+		return &NotFoundError{msg: fmt.Sprintf("NiFi resource not found: %s", msg)}
+	}
+
 	return errors.Wrapf(err, "NiFi API error: %s", msg)
 }
 
