@@ -153,6 +153,22 @@ func (e *external) Create(ctx context.Context, cr *v1alpha1.Processor) (managed.
 func (e *external) Update(ctx context.Context, cr *v1alpha1.Processor) (managed.ExternalUpdate, error) {
 	externalName := meta.GetExternalName(cr)
 
+	// NiFi requires processors to be stopped before configuration changes.
+	// Stop the processor first if it's running.
+	if cr.Status.AtProvider.RunStatus == "RUNNING" {
+		if err := e.nifi.UpdateProcessorRunStatus(externalName, "STOPPED", cr.Status.AtProvider.Version); err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot stop processor before update")
+		}
+		// Refresh version after stopping
+		processor, err := e.nifi.GetProcessor(externalName)
+		if err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot get processor after stopping")
+		}
+		if processor.Revision != nil && processor.Revision.Version != nil {
+			cr.Status.AtProvider.Version = *processor.Revision.Version
+		}
+	}
+
 	entity := buildProcessorEntity(cr)
 	entity.Id = externalName
 	entity.Component.Id = externalName
@@ -169,14 +185,14 @@ func (e *external) Update(ctx context.Context, cr *v1alpha1.Processor) (managed.
 		cr.Status.AtProvider.Version = *result.Revision.Version
 	}
 
-	// Handle run status changes (start/stop)
+	// Restart the processor if desired state is RUNNING
 	desiredState := cr.Spec.ForProvider.DesiredState
 	if desiredState == "" {
 		desiredState = "STOPPED"
 	}
-	if cr.Status.AtProvider.RunStatus != desiredState {
-		if err := e.nifi.UpdateProcessorRunStatus(externalName, desiredState, cr.Status.AtProvider.Version); err != nil {
-			return managed.ExternalUpdate{}, errors.Wrapf(err, "cannot update processor run status to %s", desiredState)
+	if desiredState == "RUNNING" {
+		if err := e.nifi.UpdateProcessorRunStatus(externalName, "RUNNING", cr.Status.AtProvider.Version); err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot start processor after update")
 		}
 	}
 
