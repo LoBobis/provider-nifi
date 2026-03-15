@@ -158,6 +158,7 @@ func (e *external) Update(ctx context.Context, cr *v1alpha1.ParameterContext) (m
 
 	entity := buildParameterContextEntity(cr)
 	entity.Id = externalName
+	entity.Component.Id = externalName
 	entity.Revision = &nigoapi.RevisionDto{
 		Version: &cr.Status.AtProvider.Version,
 	}

@@ -149,6 +149,7 @@ func (e *external) Update(ctx context.Context, cr *v1alpha1.Connection) (managed
 
 	entity := buildConnectionEntity(cr)
 	entity.Id = externalName
+	entity.Component.Id = externalName
 	entity.Revision = &nigoapi.RevisionDto{
 		Version: &cr.Status.AtProvider.Version,
 	}

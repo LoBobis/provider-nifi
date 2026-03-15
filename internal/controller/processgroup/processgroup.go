@@ -153,6 +153,7 @@ func (e *external) Update(ctx context.Context, cr *v1alpha1.ProcessGroup) (manag
 
 	entity := buildProcessGroupEntity(cr)
 	entity.Id = externalName
+	entity.Component.Id = externalName
 	entity.Revision = &nigoapi.RevisionDto{
 		Version: &cr.Status.AtProvider.Version,
 	}
