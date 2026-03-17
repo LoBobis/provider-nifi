@@ -1,17 +1,17 @@
 apiVersion: nifi.crossplane.io/v1alpha1
 kind: ManagedFlow
 metadata:
-  name: etl-pipeline-bluegreen2
+  name: eyal-check3
   namespace: crossplane-system
 spec:
   forProvider:
     parentGroupId: "root"
-    registryId: "f7d0fd58-019c-1000-2c34-23b2c308a048"
-    bucketId: "5bd7ee9c-c6fa-4a7c-9606-ceeaebcd721f"
-    flowId: "b1ef6be1-fb5c-4988-87e8-a3cfcc504830"
-    flowVersion: 3
+    registryId: "fd48ab46-019c-1000-1c65-c982618d6728"
+    bucketId: "65ae6abb-5fd7-4068-8fb1-299fd8b30627"
+    flowId: "eb81939d-99db-4f35-97e7-d68e0c496345"
+    flowVersion: 1
     parameterContext:
-      name: "pipeline-params"
+      name: "eyal-check3"
       parameters:
         - name: message
           value: "hi"

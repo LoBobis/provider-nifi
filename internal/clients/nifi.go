@@ -366,6 +366,15 @@ func (c *NiFiClient) UpdateControllerServiceRunStatus(id string, state string, v
 // --- Parameter Context Operations ---
 
 // GetParameterContext retrieves a parameter context by ID.
+// GetParameterContexts returns all parameter contexts.
+func (c *NiFiClient) GetParameterContexts() (*nigoapi.ParameterContextsEntity, error) {
+	entity, resp, _, err := c.client.FlowApi.GetParameterContexts(c.ctx)
+	if err != nil {
+		return nil, wrapNiFiError(err, resp, "list parameter contexts")
+	}
+	return &entity, nil
+}
+
 func (c *NiFiClient) GetParameterContext(id string) (*nigoapi.ParameterContextEntity, error) {
 	entity, resp, _, err := c.client.ParameterContextsApi.GetParameterContext(c.ctx, id, &nigoapi.ParameterContextsApiGetParameterContextOpts{})
 	if err != nil {
@@ -501,6 +510,57 @@ func (c *NiFiClient) GetProcessGroupStatus(pgID string) (*nigoapi.ProcessGroupSt
 		return nil, wrapNiFiError(err, resp, "get process group status %s", pgID)
 	}
 	return &result, nil
+}
+
+// GetProcessors returns all processors in a process group.
+func (c *NiFiClient) GetProcessors(pgID string) ([]nigoapi.ProcessorEntity, error) {
+	result, resp, _, err := c.client.ProcessGroupsApi.GetProcessors(c.ctx, pgID, nil)
+	if err != nil {
+		return nil, wrapNiFiError(err, resp, "get processors in group %s", pgID)
+	}
+	return result.Processors, nil
+}
+
+// GetConnections returns all connections in a process group.
+func (c *NiFiClient) GetConnections(pgID string) ([]nigoapi.ConnectionEntity, error) {
+	result, resp, _, err := c.client.ProcessGroupsApi.GetConnections(c.ctx, pgID)
+	if err != nil {
+		return nil, wrapNiFiError(err, resp, "get connections in group %s", pgID)
+	}
+	return result.Connections, nil
+}
+
+// StopProcessor stops a single processor by ID.
+func (c *NiFiClient) StopProcessor(processorID string, version int64) error {
+	body := nigoapi.ProcessorRunStatusEntity{
+		State: "STOPPED",
+		Revision: &nigoapi.RevisionDto{
+			Version: &version,
+		},
+	}
+	_, resp, _, err := c.client.ProcessorsApi.UpdateRunStatus4(c.ctx, body, processorID)
+	if err != nil {
+		return wrapNiFiError(err, resp, "stop processor %s", processorID)
+	}
+	return nil
+}
+
+// EmptyAllConnectionsInGroup drops all queued FlowFiles in all connections within a process group.
+func (c *NiFiClient) EmptyAllConnectionsInGroup(pgID string) error {
+	_, resp, _, err := c.client.ProcessGroupsApi.CreateEmptyAllConnectionsRequest(c.ctx, pgID)
+	if err != nil {
+		return wrapNiFiError(err, resp, "empty all connections in group %s", pgID)
+	}
+	return nil
+}
+
+// DropConnectionFlowFiles initiates a drop request for all FlowFiles in a connection.
+func (c *NiFiClient) DropConnectionFlowFiles(connectionID string) error {
+	_, resp, _, err := c.client.FlowFileQueuesApi.CreateDropRequest(c.ctx, connectionID)
+	if err != nil {
+		return wrapNiFiError(err, resp, "drop FlowFiles in connection %s", connectionID)
+	}
+	return nil
 }
 
 // --- Utility Functions ---

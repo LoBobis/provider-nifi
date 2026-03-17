@@ -283,6 +283,24 @@ spec:
                       blue-green cutover.
                     format: date-time
                     type: string
+                  failedFlowVersion:
+                    description: FailedFlowVersion is the flow version that last failed
+                      during rollout.
+                    format: int32
+                    type: integer
+                  lastAppliedGeneration:
+                    description: |-
+                      LastAppliedGeneration is the metadata.generation that was last successfully applied.
+                      Used to detect spec changes (parameters, etc.) that don't change flow version.
+                    format: int64
+                    type: integer
+                  failedGeneration:
+                    description: |-
+                      FailedGeneration is the metadata.generation when the last failure occurred.
+                      When phase is Failed and metadata.generation == failedGeneration, the controller
+                      stops retrying. Any spec change bumps the generation and triggers a new attempt.
+                    format: int64
+                    type: integer
                   healthCheckStartTime:
                     description: HealthCheckStartTime is when the health check began
                       during rollout.
@@ -300,6 +318,11 @@ spec:
                     description: |-
                       ParameterContextID is the NiFi-assigned ID of the managed parameter context.
                       Only set when using inline parameterContext (not parameterContextId).
+                    type: string
+                  previousParameterContextId:
+                    description: |-
+                      PreviousParameterContextID is the ID of the old parameter context pending deletion
+                      after a parameter rotation. Cleared after successful cleanup.
                     type: string
                   pendingProcessGroupId:
                     description: |-

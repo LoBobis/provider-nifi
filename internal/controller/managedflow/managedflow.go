@@ -29,6 +29,7 @@ import (
 const (
 	defaultStabilizationWindow = 30 * time.Second
 	defaultDrainTimeout        = 60 * time.Second
+	maxHealthCheckDuration     = 5 * time.Minute // Max time before health check gives up
 )
 
 // SetupGated adds a controller that reconciles ManagedFlow managed resources with safe-start.
@@ -122,6 +123,11 @@ func (e *external) Observe(ctx context.Context, cr *v1alpha1.ManagedFlow) (manag
 		cr.Status.AtProvider.Version = *pg.Revision.Version
 	}
 
+	// Recover parameter context ID from PG if not set in status
+	if cr.Status.AtProvider.ParameterContextID == "" && pg.Component != nil && pg.Component.ParameterContext != nil && pg.Component.ParameterContext.Id != "" {
+		cr.Status.AtProvider.ParameterContextID = pg.Component.ParameterContext.Id
+	}
+
 	// Get version control info
 	vci, err := e.nifi.GetVersionControlInfo(externalName)
 	if err == nil && vci.VersionControlInformation != nil {
@@ -143,8 +149,20 @@ func (e *external) Observe(ctx context.Context, cr *v1alpha1.ManagedFlow) (manag
 		cr.Status.AtProvider.ControllerServicesTotal = int32(len(services))
 	}
 
-	// If phase is transitional, signal that Update needs to run
 	phase := cr.Status.AtProvider.Phase
+
+	// If spec changed (e.g. version bump) while in a transitional phase from the initial create
+	// (no pending PG = not mid blue-green rollout), reset to Active so Update starts a proper rollout.
+	if isTransitionalPhase(phase) && cr.Status.AtProvider.PendingProcessGroupID == "" {
+		if specChanged(cr) {
+			cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseActive
+			cr.Status.AtProvider.Message = "Spec changed during initial rollout, restarting"
+			cr.Status.AtProvider.HealthCheckStartTime = nil
+			phase = v1alpha1.ManagedFlowPhaseActive
+		}
+	}
+
+	// If phase is transitional, signal that Update needs to run
 	if isTransitionalPhase(phase) {
 		cr.Status.SetConditions(xpv1.Available())
 		return managed.ExternalObservation{
@@ -189,7 +207,19 @@ func (e *external) Create(ctx context.Context, cr *v1alpha1.ManagedFlow) (manage
 		cr.Status.AtProvider.Version = *result.Revision.Version
 	}
 
-	// 2. Create inline parameter context if specified, or assign existing one
+	// 2. Rename PG to match the ManagedFlow resource name
+	if err := e.renamePG(result.Id, cr.Name, cr.Status.AtProvider.Version); err != nil {
+		// Non-fatal: PG works fine with default name
+		cr.Status.AtProvider.Message = fmt.Sprintf("Warning: could not rename PG: %v", err)
+	} else {
+		// Version increments after rename
+		pg, err := e.nifi.GetProcessGroup(result.Id)
+		if err == nil && pg.Revision != nil && pg.Revision.Version != nil {
+			cr.Status.AtProvider.Version = *pg.Revision.Version
+		}
+	}
+
+	// 3. Create inline parameter context if specified, or assign existing one
 	paramCtxID, err := e.resolveParameterContext(cr)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, "cannot resolve parameter context")
@@ -218,10 +248,16 @@ func (e *external) Update(ctx context.Context, cr *v1alpha1.ManagedFlow) (manage
 
 	switch phase {
 	case "", v1alpha1.ManagedFlowPhaseActive, v1alpha1.ManagedFlowPhaseFailed:
-		// Spec changed — start a rollout
+		// Check if this is only a desiredState change (start/stop) — handle without rollout
+		if isOnlyStateChange(cr) {
+			return e.doStateChange(ctx, cr)
+		}
+
+		// All other spec changes (flow version, parameters, etc.) trigger blue-green rollout
 		if strategy == v1alpha1.RolloutStrategyBlueGreen {
 			return e.startBlueGreenRollout(ctx, cr)
 		}
+		// InPlace strategy — change flow version directly (no parameter rotation needed)
 		return e.doInPlaceUpdate(ctx, cr)
 
 	case v1alpha1.ManagedFlowPhaseImporting:
@@ -245,8 +281,12 @@ func (e *external) Update(ctx context.Context, cr *v1alpha1.ManagedFlow) (manage
 		return e.checkDrain(ctx, cr)
 
 	case v1alpha1.ManagedFlowPhaseRollingBack:
+		// Rollback parameter context: delete new one, restore old one
+		e.rollbackParameterContext(cr)
 		cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseFailed
-		cr.Status.AtProvider.Message = "Rollback completed: pending PG had errors, old PG is still active"
+		cr.Status.AtProvider.FailedFlowVersion = cr.Spec.ForProvider.FlowVersion
+		cr.Status.AtProvider.FailedGeneration = cr.Generation
+		cr.Status.AtProvider.Message = fmt.Sprintf("Rollback completed: version %d had errors, old PG is still active. Change spec to retry.", cr.Spec.ForProvider.FlowVersion)
 		cr.Status.AtProvider.PendingProcessGroupID = ""
 		cr.Status.AtProvider.HealthCheckStartTime = nil
 		return managed.ExternalUpdate{}, nil
@@ -270,11 +310,14 @@ func (e *external) Delete(ctx context.Context, cr *v1alpha1.ManagedFlow) (manage
 		}
 	}
 
-	// Delete managed parameter context if we created one
-	if cr.Status.AtProvider.ParameterContextID != "" {
-		pc, err := e.nifi.GetParameterContext(cr.Status.AtProvider.ParameterContextID)
+	// Delete managed parameter contexts (current and previous if mid-rotation)
+	for _, pcID := range []string{cr.Status.AtProvider.ParameterContextID, cr.Status.AtProvider.PreviousParameterContextID} {
+		if pcID == "" {
+			continue
+		}
+		pc, err := e.nifi.GetParameterContext(pcID)
 		if err == nil && pc.Revision != nil && pc.Revision.Version != nil {
-			_ = e.nifi.DeleteParameterContext(cr.Status.AtProvider.ParameterContextID, *pc.Revision.Version)
+			_ = e.nifi.DeleteParameterContext(pcID, *pc.Revision.Version)
 		}
 	}
 
@@ -307,23 +350,45 @@ func (e *external) startBlueGreenRollout(ctx context.Context, cr *v1alpha1.Manag
 
 	cr.Status.AtProvider.PendingProcessGroupID = newPG.Id
 	cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseImporting
+	cr.Status.AtProvider.FailedFlowVersion = 0 // Clear any previous failure
+	cr.Status.AtProvider.FailedGeneration = 0
 	cr.Status.AtProvider.Message = fmt.Sprintf("Blue-green rollout: imported new PG %s", newPG.Id)
+
+	// Rename new PG to match ManagedFlow name with version suffix
+	var newPGVersion int64
+	if newPG.Revision != nil && newPG.Revision.Version != nil {
+		newPGVersion = *newPG.Revision.Version
+	}
+	pendingName := fmt.Sprintf("%s-v%d", cr.Name, p.FlowVersion)
+	if err := e.renamePG(newPG.Id, pendingName, newPGVersion); err != nil {
+		cr.Status.AtProvider.Message = fmt.Sprintf("Blue-green rollout: imported new PG %s (rename failed: %v)", newPG.Id, err)
+	}
 
 	// Assign parameter context to new PG (inline or by ID)
 	paramCtxID, err := e.resolveParameterContext(cr)
 	if err != nil {
 		_ = e.stopAndDeletePG(newPG.Id)
 		cr.Status.AtProvider.PendingProcessGroupID = ""
+		cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseActive // Reset phase so next reconcile can retry
 		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot resolve parameter context for new PG")
 	}
 	if paramCtxID != "" {
+		// Refresh version — rename may have incremented it
+		refreshedPG, err := e.nifi.GetProcessGroup(newPG.Id)
+		if err != nil {
+			_ = e.stopAndDeletePG(newPG.Id)
+			cr.Status.AtProvider.PendingProcessGroupID = ""
+			cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseActive
+			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot refresh PG version after rename")
+		}
 		var version int64
-		if newPG.Revision != nil && newPG.Revision.Version != nil {
-			version = *newPG.Revision.Version
+		if refreshedPG.Revision != nil && refreshedPG.Revision.Version != nil {
+			version = *refreshedPG.Revision.Version
 		}
 		if err := e.assignParameterContext(newPG.Id, paramCtxID, version); err != nil {
 			_ = e.stopAndDeletePG(newPG.Id)
 			cr.Status.AtProvider.PendingProcessGroupID = ""
+			cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseActive // Reset phase so next reconcile can retry
 			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot assign parameter context to new PG")
 		}
 	}
@@ -417,22 +482,66 @@ func (e *external) checkHealth(ctx context.Context, cr *v1alpha1.ManagedFlow) (m
 
 	stabilizationWindow := getStabilizationWindow(cr)
 
-	// Check for error bulletins
-	board, err := e.nifi.GetBulletinBoard(targetID)
-	if err != nil {
-		cr.Status.AtProvider.Message = fmt.Sprintf("Cannot check bulletins: %v", err)
-		return managed.ExternalUpdate{}, nil
-	}
-
 	hasErrors := false
-	if board.BulletinBoard != nil {
-		for _, b := range board.BulletinBoard.Bulletins {
-			if b.Bulletin != nil && strings.EqualFold(b.Bulletin.Level, "ERROR") {
+	var errorMsg string
+
+	// Check 1: Verify all processors are running and valid (not just bulletins)
+	desiredState := cr.Spec.ForProvider.DesiredState
+	if desiredState == "" {
+		desiredState = "STOPPED"
+	}
+	if desiredState == "RUNNING" {
+		processors, err := e.nifi.GetProcessors(targetID)
+		if err != nil {
+			cr.Status.AtProvider.Message = fmt.Sprintf("Cannot list processors for health check: %v", err)
+			return managed.ExternalUpdate{}, nil
+		}
+		for _, proc := range processors {
+			if proc.Component == nil {
+				continue
+			}
+			// Check for INVALID validation status
+			if strings.EqualFold(proc.Component.ValidationStatus, "INVALID") {
 				hasErrors = true
-				cr.Status.AtProvider.Message = fmt.Sprintf("Error bulletin: %s", b.Bulletin.Message)
+				validationErrs := strings.Join(proc.Component.ValidationErrors, "; ")
+				errorMsg = fmt.Sprintf("Processor %s is INVALID: %s", proc.Component.Name, validationErrs)
+				break
+			}
+			// Check that processors are actually running (not stopped/disabled)
+			if !strings.EqualFold(proc.Component.State, "RUNNING") {
+				hasErrors = true
+				errorMsg = fmt.Sprintf("Processor %s is not running (state: %s)", proc.Component.Name, proc.Component.State)
 				break
 			}
 		}
+	}
+
+	// Check 2: Error bulletins
+	if !hasErrors {
+		board, err := e.nifi.GetBulletinBoard(targetID)
+		if err != nil {
+			cr.Status.AtProvider.Message = fmt.Sprintf("Cannot check bulletins: %v", err)
+			return managed.ExternalUpdate{}, nil
+		}
+		if board.BulletinBoard != nil {
+			for _, b := range board.BulletinBoard.Bulletins {
+				if b.Bulletin != nil && strings.EqualFold(b.Bulletin.Level, "ERROR") {
+					hasErrors = true
+					errorMsg = fmt.Sprintf("Error bulletin: %s", b.Bulletin.Message)
+					break
+				}
+			}
+		}
+	}
+
+	if hasErrors {
+		cr.Status.AtProvider.Message = errorMsg
+	}
+
+	// Check if we've exceeded the max health check duration
+	healthCheckElapsed := time.Duration(0)
+	if cr.Status.AtProvider.HealthCheckStartTime != nil {
+		healthCheckElapsed = time.Since(cr.Status.AtProvider.HealthCheckStartTime.Time)
 	}
 
 	if hasErrors && isBlueGreen {
@@ -444,11 +553,16 @@ func (e *external) checkHealth(ctx context.Context, cr *v1alpha1.ManagedFlow) (m
 	}
 
 	if hasErrors {
-		// Not blue-green (initial create) — just report and stay in health checking
-		cr.Status.AtProvider.Message = "Error bulletins detected, waiting for resolution"
-		// Reset health check timer
-		now := metav1.Now()
-		cr.Status.AtProvider.HealthCheckStartTime = &now
+		// Not blue-green (initial create) — check if we've been trying too long
+		if healthCheckElapsed >= maxHealthCheckDuration {
+			cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseFailed
+			cr.Status.AtProvider.FailedFlowVersion = cr.Spec.ForProvider.FlowVersion
+			cr.Status.AtProvider.FailedGeneration = cr.Generation
+			cr.Status.AtProvider.Message = fmt.Sprintf("Health check failed: errors persisted for %s. Change spec to retry.", healthCheckElapsed.Round(time.Second))
+			cr.Status.AtProvider.HealthCheckStartTime = nil
+			return managed.ExternalUpdate{}, nil
+		}
+		cr.Status.AtProvider.Message = fmt.Sprintf("Error bulletins detected (%s elapsed), waiting for resolution", healthCheckElapsed.Round(time.Second))
 		return managed.ExternalUpdate{}, nil
 	}
 
@@ -473,11 +587,12 @@ func (e *external) checkHealth(ctx context.Context, cr *v1alpha1.ManagedFlow) (m
 		cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseDrainingOld
 		cr.Status.AtProvider.Message = "Health check passed, draining old process group"
 
-		// Stop old PG to begin draining
-		_ = e.nifi.ScheduleProcessGroup(cr.Status.AtProvider.ActiveProcessGroupID, "STOPPED")
+		// Stop only input processors (no incoming connections) to allow data to drain through
+		_ = e.stopInputProcessors(cr.Status.AtProvider.ActiveProcessGroupID)
 	} else {
 		// Initial create — we're done
 		cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseActive
+		cr.Status.AtProvider.LastAppliedGeneration = cr.Generation
 		cr.Status.AtProvider.Message = "Flow is active and healthy"
 		cr.Status.AtProvider.HealthCheckStartTime = nil
 		now := metav1.Now()
@@ -531,7 +646,17 @@ func (e *external) checkDrain(ctx context.Context, cr *v1alpha1.ManagedFlow) (ma
 	cr.Status.AtProvider.ActiveProcessGroupID = newPGID
 	cr.Status.AtProvider.PendingProcessGroupID = ""
 	cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseActive
+	cr.Status.AtProvider.LastAppliedGeneration = cr.Generation
 	cr.Status.AtProvider.Message = "Blue-green rollout completed successfully"
+
+	// Clean up old parameter context after successful cutover
+	e.cleanupOldParameterContext(cr)
+
+	// Rename the new active PG to the ManagedFlow name (remove version suffix)
+	newPG, renameErr := e.nifi.GetProcessGroup(newPGID)
+	if renameErr == nil && newPG.Revision != nil && newPG.Revision.Version != nil {
+		_ = e.renamePG(newPGID, cr.Name, *newPG.Revision.Version)
+	}
 	cr.Status.AtProvider.HealthCheckStartTime = nil
 	cr.Status.AtProvider.DrainStartTime = nil
 	now := metav1.Now()
@@ -562,7 +687,16 @@ func (e *external) doInPlaceUpdate(ctx context.Context, cr *v1alpha1.ManagedFlow
 	// Re-enable controller services
 	_ = e.nifi.ActivateControllerServicesInGroup(externalName, "ENABLED")
 
-	// Handle start/stop
+	cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseEnablingServices
+	cr.Status.AtProvider.Message = "In-place version update, re-enabling services"
+	return managed.ExternalUpdate{}, nil
+}
+
+// doStateChange handles only desiredState changes (start/stop) without triggering a rollout.
+func (e *external) doStateChange(ctx context.Context, cr *v1alpha1.ManagedFlow) (managed.ExternalUpdate, error) {
+	externalName := meta.GetExternalName(cr)
+	p := cr.Spec.ForProvider
+
 	desiredState := p.DesiredState
 	if desiredState == "" {
 		desiredState = "STOPPED"
@@ -570,7 +704,7 @@ func (e *external) doInPlaceUpdate(ctx context.Context, cr *v1alpha1.ManagedFlow
 
 	pg, err := e.nifi.GetProcessGroup(externalName)
 	if err != nil {
-		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot get process group for state update")
+		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot get process group for state change")
 	}
 
 	if desiredState == "RUNNING" && pg.StoppedCount > 0 {
@@ -584,44 +718,49 @@ func (e *external) doInPlaceUpdate(ctx context.Context, cr *v1alpha1.ManagedFlow
 	}
 
 	cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseActive
-	cr.Status.AtProvider.Message = "In-place update completed"
+	cr.Status.AtProvider.LastAppliedGeneration = cr.Generation
+	cr.Status.AtProvider.Message = "State change completed"
 	return managed.ExternalUpdate{}, nil
+}
+
+// isOnlyStateChange returns true when the only difference between spec and status
+// is the desiredState (RUNNING/STOPPED), not flow version or parameters.
+func isOnlyStateChange(cr *v1alpha1.ManagedFlow) bool {
+	p := cr.Spec.ForProvider
+
+	// If flow version changed, it's not just a state change
+	if p.FlowVersion > 0 && cr.Status.AtProvider.CurrentVersion != p.FlowVersion {
+		return false
+	}
+
+	// If generation changed (parameters, etc.), it's not just a state change
+	// UNLESS the only thing that changed is desiredState (which also bumps generation).
+	// We detect this by checking if flow version and parameters are the same.
+	// Since we can't deep-compare parameters easily, we rely on generation:
+	// if lastAppliedGeneration is set and generation differs, something changed.
+	// But we need to distinguish state-only changes from param changes.
+	// The simplest approach: if the PG is in the wrong run state, treat it as state change.
+	// Other generation changes will fall through to rollout.
+	if cr.Status.AtProvider.LastAppliedGeneration > 0 && cr.Generation != cr.Status.AtProvider.LastAppliedGeneration {
+		return false
+	}
+
+	return true
 }
 
 // --- Helpers ---
 
-// resolveParameterContext returns the parameter context ID to assign.
-// If inline parameterContext is specified, it creates or updates the managed parameter context.
+// resolveParameterContext returns the parameter context ID to assign to a PG.
+// For inline parameter contexts, it creates a new one with a generation-suffixed name
+// to avoid conflicts with any existing context (blue-green rollout runs both PGs in parallel).
+// After successful cutover, the old parameter context is cleaned up.
 // If parameterContextId is specified, it returns that ID directly.
 func (e *external) resolveParameterContext(cr *v1alpha1.ManagedFlow) (string, error) {
 	p := cr.Spec.ForProvider
 
 	// Inline parameter context takes precedence
 	if p.ParameterContext != nil {
-		if cr.Status.AtProvider.ParameterContextID != "" {
-			// Update existing managed parameter context
-			existing, err := e.nifi.GetParameterContext(cr.Status.AtProvider.ParameterContextID)
-			if err != nil {
-				return "", errors.Wrap(err, "cannot get existing managed parameter context")
-			}
-			entity := buildInlineParameterContextEntity(p.ParameterContext)
-			entity.Component.Id = existing.Component.Id
-			entity.Id = existing.Id
-			entity.Revision = existing.Revision
-			updated, err := e.nifi.UpdateParameterContext(entity)
-			if err != nil {
-				return "", errors.Wrap(err, "cannot update managed parameter context")
-			}
-			return updated.Id, nil
-		}
-		// Create new managed parameter context
-		entity := buildInlineParameterContextEntity(p.ParameterContext)
-		result, err := e.nifi.CreateParameterContext(entity)
-		if err != nil {
-			return "", errors.Wrap(err, "cannot create managed parameter context")
-		}
-		cr.Status.AtProvider.ParameterContextID = result.Id
-		return result.Id, nil
+		return e.createParameterContextForGeneration(cr)
 	}
 
 	// Direct ID reference
@@ -629,6 +768,99 @@ func (e *external) resolveParameterContext(cr *v1alpha1.ManagedFlow) (string, er
 		return p.ParameterContextID, nil
 	}
 
+	return "", nil
+}
+
+// createParameterContextForGeneration creates a new parameter context with a generation-suffixed
+// name (e.g., "my-params-gen5"). If one with that name already exists (idempotency for retries),
+// it reuses it. The old parameter context ID is stored for cleanup after cutover.
+func (e *external) createParameterContextForGeneration(cr *v1alpha1.ManagedFlow) (string, error) {
+	cfg := cr.Spec.ForProvider.ParameterContext
+	oldParamCtxID := cr.Status.AtProvider.ParameterContextID
+
+	// Use generation-suffixed name to avoid conflicts during blue-green
+	newName := fmt.Sprintf("%s-gen%d", cfg.Name, cr.Generation)
+
+	// Check if a parameter context with this name already exists (idempotency)
+	existingID, err := e.findParameterContextByName(newName)
+	if err == nil && existingID != "" {
+		// Already exists — reuse it (previous attempt may have created it)
+		cr.Status.AtProvider.ParameterContextID = existingID
+		if oldParamCtxID != "" && oldParamCtxID != existingID {
+			cr.Status.AtProvider.PreviousParameterContextID = oldParamCtxID
+		}
+		return existingID, nil
+	}
+
+	entity := buildInlineParameterContextEntity(cfg)
+	entity.Component.Name = newName
+
+	newPC, err := e.nifi.CreateParameterContext(entity)
+	if err != nil {
+		return "", errors.Wrap(err, "cannot create parameter context")
+	}
+
+	cr.Status.AtProvider.ParameterContextID = newPC.Id
+	if oldParamCtxID != "" && oldParamCtxID != newPC.Id {
+		cr.Status.AtProvider.PreviousParameterContextID = oldParamCtxID
+	}
+
+	return newPC.Id, nil
+}
+
+// cleanupOldParameterContext deletes the previous parameter context after a successful rotation.
+func (e *external) cleanupOldParameterContext(cr *v1alpha1.ManagedFlow) {
+	oldID := cr.Status.AtProvider.PreviousParameterContextID
+	if oldID == "" {
+		return
+	}
+	pc, err := e.nifi.GetParameterContext(oldID)
+	if err != nil {
+		// Already gone or inaccessible
+		cr.Status.AtProvider.PreviousParameterContextID = ""
+		return
+	}
+	var version int64
+	if pc.Revision != nil && pc.Revision.Version != nil {
+		version = *pc.Revision.Version
+	}
+	_ = e.nifi.DeleteParameterContext(oldID, version)
+	cr.Status.AtProvider.PreviousParameterContextID = ""
+}
+
+// rollbackParameterContext deletes the new parameter context and restores the old one.
+func (e *external) rollbackParameterContext(cr *v1alpha1.ManagedFlow) {
+	newID := cr.Status.AtProvider.ParameterContextID
+	oldID := cr.Status.AtProvider.PreviousParameterContextID
+	if oldID == "" || newID == "" {
+		return
+	}
+	// Delete the new (failed) parameter context
+	pc, err := e.nifi.GetParameterContext(newID)
+	if err == nil {
+		var version int64
+		if pc.Revision != nil && pc.Revision.Version != nil {
+			version = *pc.Revision.Version
+		}
+		_ = e.nifi.DeleteParameterContext(newID, version)
+	}
+	// Restore old ID
+	cr.Status.AtProvider.ParameterContextID = oldID
+	cr.Status.AtProvider.PreviousParameterContextID = ""
+}
+
+func (e *external) findParameterContextByName(name string) (string, error) {
+	contexts, err := e.nifi.GetParameterContexts()
+	if err != nil {
+		return "", err
+	}
+	if contexts.ParameterContexts != nil {
+		for _, pc := range contexts.ParameterContexts {
+			if pc.Component != nil && pc.Component.Name == name {
+				return pc.Id, nil
+			}
+		}
+	}
 	return "", nil
 }
 
@@ -676,6 +908,22 @@ func buildInlineParameterContextEntity(cfg *v1alpha1.ParameterContextConfig) nig
 	}
 }
 
+// renamePG renames a process group to the given name.
+func (e *external) renamePG(pgID, name string, version int64) error {
+	entity := nigoapi.ProcessGroupEntity{
+		Id: pgID,
+		Revision: &nigoapi.RevisionDto{
+			Version: &version,
+		},
+		Component: &nigoapi.ProcessGroupDto{
+			Id:   pgID,
+			Name: name,
+		},
+	}
+	_, err := e.nifi.UpdateProcessGroup(entity)
+	return err
+}
+
 func (e *external) assignParameterContext(pgID, paramCtxID string, version int64) error {
 	entity := nigoapi.ProcessGroupEntity{
 		Id: pgID,
@@ -698,19 +946,31 @@ func (e *external) stopAndDeletePG(pgID string) error {
 		return nil
 	}
 
-	// Stop all processors first
+	// Check if PG exists first
+	pg, err := e.nifi.GetProcessGroup(pgID)
+	if err != nil {
+		if nificlient.IsNotFound(err) {
+			return nil // Already gone
+		}
+		return errors.Wrap(err, "cannot get process group for deletion")
+	}
+
+	// Stop all processors first (ignore errors — some may already be stopped or invalid)
 	_ = e.nifi.ScheduleProcessGroup(pgID, "STOPPED")
 
-	// Disable all controller services before deletion
+	// Disable all controller services before deletion (ignore errors — some may already be disabled)
 	_ = e.nifi.ActivateControllerServicesInGroup(pgID, "DISABLED")
 
-	// Refresh version after state changes
-	pg, err := e.nifi.GetProcessGroup(pgID)
+	// Drop all queued FlowFiles to allow deletion of PG with queued data
+	_ = e.nifi.EmptyAllConnectionsInGroup(pgID)
+
+	// Refresh version after state changes (version increments on stop/disable)
+	pg, err = e.nifi.GetProcessGroup(pgID)
 	if err != nil {
 		if nificlient.IsNotFound(err) {
 			return nil
 		}
-		return errors.Wrap(err, "cannot get process group for deletion")
+		return errors.Wrap(err, "cannot refresh process group version for deletion")
 	}
 
 	var version int64
@@ -718,7 +978,51 @@ func (e *external) stopAndDeletePG(pgID string) error {
 		version = *pg.Revision.Version
 	}
 
-	return e.nifi.DeleteProcessGroup(pgID, version)
+	err = e.nifi.DeleteProcessGroup(pgID, version)
+	if err != nil && nificlient.IsNotFound(err) {
+		return nil // Race condition: already deleted
+	}
+	return err
+}
+
+// stopInputProcessors stops only the root/input processors (those with no incoming connections)
+// in the given process group. This allows data already in the pipeline to drain through.
+func (e *external) stopInputProcessors(pgID string) error {
+	// Get all connections to find which processors have incoming connections
+	connections, err := e.nifi.GetConnections(pgID)
+	if err != nil {
+		// Fallback: stop the entire PG if we can't determine input processors
+		return e.nifi.ScheduleProcessGroup(pgID, "STOPPED")
+	}
+
+	// Build set of processor IDs that have incoming connections (destination IDs)
+	hasIncoming := make(map[string]bool)
+	for _, conn := range connections {
+		if conn.Component != nil && conn.Component.Destination != nil {
+			hasIncoming[conn.Component.Destination.Id] = true
+		}
+	}
+
+	// Get all processors and stop only those with no incoming connections
+	processors, err := e.nifi.GetProcessors(pgID)
+	if err != nil {
+		return e.nifi.ScheduleProcessGroup(pgID, "STOPPED")
+	}
+
+	for _, proc := range processors {
+		if proc.Component == nil {
+			continue
+		}
+		if !hasIncoming[proc.Id] && strings.EqualFold(proc.Component.State, "RUNNING") {
+			var version int64
+			if proc.Revision != nil && proc.Revision.Version != nil {
+				version = *proc.Revision.Version
+			}
+			_ = e.nifi.StopProcessor(proc.Id, version)
+		}
+	}
+
+	return nil
 }
 
 func (e *external) getTargetPGID(cr *v1alpha1.ManagedFlow) string {
@@ -741,10 +1045,47 @@ func isTransitionalPhase(phase v1alpha1.ManagedFlowPhase) bool {
 	return false
 }
 
+// specChanged returns true if the desired spec diverges from what's currently deployed.
+// Used to detect version or parameter changes during transitional phases.
+func specChanged(cr *v1alpha1.ManagedFlow) bool {
+	p := cr.Spec.ForProvider
+	if p.FlowVersion > 0 && cr.Status.AtProvider.CurrentVersion != p.FlowVersion {
+		return true
+	}
+	if cr.Status.AtProvider.LastAppliedGeneration > 0 && cr.Generation != cr.Status.AtProvider.LastAppliedGeneration {
+		return true
+	}
+	return false
+}
+
 func isManagedFlowUpToDate(cr *v1alpha1.ManagedFlow, pg *nigoapi.ProcessGroupEntity) bool {
 	p := cr.Spec.ForProvider
 
+	// Failed phase: stop retrying unless the user changed the spec (any spec change bumps generation)
+	if cr.Status.AtProvider.Phase == v1alpha1.ManagedFlowPhaseFailed {
+		// If failedGeneration was recorded, use it to detect spec changes
+		if cr.Status.AtProvider.FailedGeneration > 0 {
+			if cr.Generation != cr.Status.AtProvider.FailedGeneration {
+				return false // User changed spec since failure — retry
+			}
+			return true // Same spec that failed — don't retry
+		}
+		// Backwards compat: failedGeneration not set (old binary), use observedGeneration from Synced condition
+		// If the Synced condition's observedGeneration matches current generation, spec hasn't changed
+		for _, c := range cr.Status.Conditions {
+			if c.Type == "Synced" && c.ObservedGeneration == cr.Generation {
+				return true // Already observed this generation while in Failed — don't retry
+			}
+		}
+		return false // Generation not yet observed — retry
+	}
+
 	if cr.Status.AtProvider.Phase != v1alpha1.ManagedFlowPhaseActive {
+		return false
+	}
+
+	// Detect any spec change (parameters, flow version, etc.) via generation
+	if cr.Status.AtProvider.LastAppliedGeneration > 0 && cr.Generation != cr.Status.AtProvider.LastAppliedGeneration {
 		return false
 	}
 

@@ -145,6 +145,11 @@ type ManagedFlowObservation struct {
 	// Only set when using inline parameterContext (not parameterContextId).
 	ParameterContextID string `json:"parameterContextId,omitempty"`
 
+	// PreviousParameterContextID is the ID of the old parameter context pending deletion
+	// after a parameter rotation. Cleared after successful cleanup.
+	// +optional
+	PreviousParameterContextID string `json:"previousParameterContextId,omitempty"`
+
 	// CurrentVersion is the currently deployed flow version.
 	CurrentVersion int32 `json:"currentVersion,omitempty"`
 
@@ -171,6 +176,21 @@ type ManagedFlowObservation struct {
 	// LastRolloutTime is the timestamp of the last successful rollout.
 	// +optional
 	LastRolloutTime *metav1.Time `json:"lastRolloutTime,omitempty"`
+
+	// LastAppliedGeneration is the metadata.generation that was last successfully applied.
+	// Used to detect spec changes (parameters, etc.) that don't change flow version.
+	// +optional
+	LastAppliedGeneration int64 `json:"lastAppliedGeneration,omitempty"`
+
+	// FailedFlowVersion is the flow version that last failed during rollout.
+	// +optional
+	FailedFlowVersion int32 `json:"failedFlowVersion,omitempty"`
+
+	// FailedGeneration is the metadata.generation when the last failure occurred.
+	// When phase is Failed and metadata.generation == failedGeneration, the controller
+	// stops retrying. Any spec change bumps the generation and triggers a new attempt.
+	// +optional
+	FailedGeneration int64 `json:"failedGeneration,omitempty"`
 
 	// Message is a human-readable status message.
 	Message string `json:"message,omitempty"`
