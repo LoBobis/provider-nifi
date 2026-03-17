@@ -1,0 +1,51 @@
+apiVersion: nifi.crossplane.io/v1alpha1
+kind: ManagedFlow
+metadata:
+  name: etl-pipeline-bluegreen2
+  namespace: crossplane-system
+spec:
+  forProvider:
+    parentGroupId: "root"
+    registryId: "f7d0fd58-019c-1000-2c34-23b2c308a048"
+    bucketId: "5bd7ee9c-c6fa-4a7c-9606-ceeaebcd721f"
+    flowId: "b1ef6be1-fb5c-4988-87e8-a3cfcc504830"
+    flowVersion: 3
+    parameterContext:
+      name: "pipeline-params"
+      parameters:
+        - name: message
+          value: "hi"
+    desiredState: RUNNING
+    position:
+      "x": 400
+      "y": 200
+    rollout:
+      strategy: BlueGreen
+      healthCheck:
+        stabilizationWindow: "30s"
+      drainTimeout: "60s"
+  providerConfigRef:
+    name: default
+    kind: ProviderConfig
+#---
+#apiVersion: nifi.crossplane.io/v1alpha1
+#kind: ManagedFlow
+#metadata:
+#  name: etl-pipeline-inplace
+#  namespace: crossplane-system
+#spec:
+#  forProvider:
+#    parentGroupId: "root"
+#    registryId: "<nifi-registry-client-id>"
+#    bucketId: "<registry-bucket-id>"
+#    flowId: "<versioned-flow-id>"
+#    flowVersion: 1
+#    desiredState: RUNNING
+#    position:
+#      "x": 800
+#      "y": 200
+#    rollout:
+#      strategy: InPlace
+#  providerConfigRef:
+#    name: default
+#    kind: ProviderConfig

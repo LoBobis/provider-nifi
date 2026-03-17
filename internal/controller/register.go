@@ -10,6 +10,7 @@ import (
 	"github.com/crossplane-contrib/provider-nifi/internal/controller/parametercontext"
 	"github.com/crossplane-contrib/provider-nifi/internal/controller/processgroup"
 	"github.com/crossplane-contrib/provider-nifi/internal/controller/processor"
+	"github.com/crossplane-contrib/provider-nifi/internal/controller/managedflow"
 	"github.com/crossplane-contrib/provider-nifi/internal/controller/registryflow"
 )
 
@@ -24,6 +25,7 @@ func SetupGated(mgr ctrl.Manager, o controller.Options) error {
 		controllerservice.SetupGated,
 		parametercontext.SetupGated,
 		registryflow.SetupGated,
+		managedflow.SetupGated,
 	} {
 		if err := setup(mgr, o); err != nil {
 			return err

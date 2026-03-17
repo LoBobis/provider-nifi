@@ -455,6 +455,54 @@ func (c *NiFiClient) ChangeFlowVersion(processGroupID string, vci nigoapi.Versio
 	return nil
 }
 
+// --- Flow Operations (Bulletins, Status, Controller Service Activation) ---
+
+// ListControllerServicesInGroup lists all controller services within a process group.
+func (c *NiFiClient) ListControllerServicesInGroup(pgID string) ([]nigoapi.ControllerServiceEntity, error) {
+	result, resp, _, err := c.client.FlowApi.GetControllerServicesFromGroup(c.ctx, pgID, nil)
+	if err != nil {
+		return nil, wrapNiFiError(err, resp, "list controller services in group %s", pgID)
+	}
+	return result.ControllerServices, nil
+}
+
+// ActivateControllerServicesInGroup batch enables or disables all controller services
+// in a process group. State should be "ENABLED" or "DISABLED".
+func (c *NiFiClient) ActivateControllerServicesInGroup(pgID string, state string) error {
+	entity := nigoapi.ActivateControllerServicesEntity{
+		Id:    pgID,
+		State: state,
+	}
+	_, resp, _, err := c.client.FlowApi.ActivateControllerServices(c.ctx, entity, pgID)
+	if err != nil {
+		return wrapNiFiError(err, resp, "activate controller services in group %s to %s", pgID, state)
+	}
+	return nil
+}
+
+// GetBulletinBoard retrieves the bulletin board, optionally filtered by group ID.
+func (c *NiFiClient) GetBulletinBoard(groupID string) (*nigoapi.BulletinBoardEntity, error) {
+	opts := &nigoapi.FlowApiGetBulletinBoardOpts{}
+	if groupID != "" {
+		opts.GroupId = optional.NewInterface(groupID)
+	}
+	result, resp, _, err := c.client.FlowApi.GetBulletinBoard(c.ctx, opts)
+	if err != nil {
+		return nil, wrapNiFiError(err, resp, "get bulletin board for group %s", groupID)
+	}
+	return &result, nil
+}
+
+// GetProcessGroupStatus retrieves the status of a process group including
+// aggregate snapshot with queued FlowFile counts.
+func (c *NiFiClient) GetProcessGroupStatus(pgID string) (*nigoapi.ProcessGroupStatusEntity, error) {
+	result, resp, _, err := c.client.FlowApi.GetProcessGroupStatus(c.ctx, pgID, nil)
+	if err != nil {
+		return nil, wrapNiFiError(err, resp, "get process group status %s", pgID)
+	}
+	return &result, nil
+}
+
 // --- Utility Functions ---
 
 // NotFoundError is returned when a NiFi resource is not found (HTTP 404).
