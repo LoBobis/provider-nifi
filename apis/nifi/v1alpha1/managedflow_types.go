@@ -150,6 +150,11 @@ type ManagedFlowObservation struct {
 	// +optional
 	PreviousParameterContextID string `json:"previousParameterContextId,omitempty"`
 
+	// PreviousProcessGroupID is the ID of an old process group that failed to delete
+	// during cutover. The controller will retry cleanup on subsequent reconciles.
+	// +optional
+	PreviousProcessGroupID string `json:"previousProcessGroupId,omitempty"`
+
 	// CurrentVersion is the currently deployed flow version.
 	CurrentVersion int32 `json:"currentVersion,omitempty"`
 
@@ -181,6 +186,12 @@ type ManagedFlowObservation struct {
 	// Used to detect spec changes (parameters, etc.) that don't change flow version.
 	// +optional
 	LastAppliedGeneration int64 `json:"lastAppliedGeneration,omitempty"`
+
+	// LastAppliedParameterHash is a hash of the inline parameter context config
+	// that was last successfully deployed. Used to detect actual parameter changes
+	// without false positives from position/desiredState changes.
+	// +optional
+	LastAppliedParameterHash string `json:"lastAppliedParameterHash,omitempty"`
 
 	// FailedFlowVersion is the flow version that last failed during rollout.
 	// +optional

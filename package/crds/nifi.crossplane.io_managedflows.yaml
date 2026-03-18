@@ -288,6 +288,12 @@ spec:
                       during rollout.
                     format: int32
                     type: integer
+                  lastAppliedParameterHash:
+                    description: |-
+                      LastAppliedParameterHash is a hash of the inline parameter context config
+                      that was last successfully deployed. Used to detect actual parameter changes
+                      without false positives from position/desiredState changes.
+                    type: string
                   lastAppliedGeneration:
                     description: |-
                       LastAppliedGeneration is the metadata.generation that was last successfully applied.
@@ -328,6 +334,11 @@ spec:
                     description: |-
                       PendingProcessGroupID is the NiFi-assigned ID of the new process group
                       being validated during a blue-green rollout. Empty when no rollout is in progress.
+                    type: string
+                  previousProcessGroupId:
+                    description: |-
+                      PreviousProcessGroupID is the ID of an old process group that failed to delete
+                      during cutover. The controller will retry cleanup on subsequent reconciles.
                     type: string
                   phase:
                     description: Phase is the current lifecycle phase of the ManagedFlow.

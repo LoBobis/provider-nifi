@@ -2,6 +2,8 @@ package managedflow
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -147,6 +149,15 @@ func (e *external) Observe(ctx context.Context, cr *v1alpha1.ManagedFlow) (manag
 		}
 		cr.Status.AtProvider.ControllerServicesEnabled = enabled
 		cr.Status.AtProvider.ControllerServicesTotal = int32(len(services))
+	}
+
+	// Best-effort cleanup of orphaned old PG from a previous cutover that failed to delete.
+	// This runs every Observe cycle until the old PG is successfully removed.
+	if cr.Status.AtProvider.PreviousProcessGroupID != "" {
+		if err := e.stopAndDeletePG(cr.Status.AtProvider.PreviousProcessGroupID); err == nil {
+			cr.Status.AtProvider.PreviousProcessGroupID = ""
+		}
+		// If it fails again, we'll retry on the next Observe — no error returned.
 	}
 
 	phase := cr.Status.AtProvider.Phase
@@ -308,6 +319,11 @@ func (e *external) Delete(ctx context.Context, cr *v1alpha1.ManagedFlow) (manage
 		if err := e.stopAndDeletePG(cr.Status.AtProvider.PendingProcessGroupID); err != nil {
 			return managed.ExternalDelete{}, errors.Wrap(err, "cannot delete pending process group")
 		}
+	}
+
+	// Delete orphaned old PG from failed cutover cleanup
+	if cr.Status.AtProvider.PreviousProcessGroupID != "" {
+		_ = e.stopAndDeletePG(cr.Status.AtProvider.PreviousProcessGroupID)
 	}
 
 	// Delete managed parameter contexts (current and previous if mid-rotation)
@@ -593,6 +609,7 @@ func (e *external) checkHealth(ctx context.Context, cr *v1alpha1.ManagedFlow) (m
 		// Initial create — we're done
 		cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseActive
 		cr.Status.AtProvider.LastAppliedGeneration = cr.Generation
+		cr.Status.AtProvider.LastAppliedParameterHash = computeParameterHash(cr.Spec.ForProvider.ParameterContext)
 		cr.Status.AtProvider.Message = "Flow is active and healthy"
 		cr.Status.AtProvider.HealthCheckStartTime = nil
 		now := metav1.Now()
@@ -636,17 +653,39 @@ func (e *external) checkDrain(ctx context.Context, cr *v1alpha1.ManagedFlow) (ma
 		cr.Status.AtProvider.Message = "Drain timeout exceeded, force-deleting old process group"
 	}
 
-	// Delete old PG
-	if err := e.stopAndDeletePG(oldPGID); err != nil {
-		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot delete old process group during cutover")
-	}
-
-	// Swap: new PG becomes active
+	// Swap external name to the new PG BEFORE deleting the old one.
+	// This ensures that even if the subsequent delete or status write fails,
+	// the next reconcile's Observe will find the new PG (not the deleted old one).
 	meta.SetExternalName(cr, newPGID)
 	cr.Status.AtProvider.ActiveProcessGroupID = newPGID
 	cr.Status.AtProvider.PendingProcessGroupID = ""
+
+	// Delete old PG — best-effort since external name already points to new PG.
+	// If this fails (e.g., services still disabling), we still complete the cutover.
+	// The old PG becomes orphaned but the new PG is safely active.
+	if err := e.stopAndDeletePG(oldPGID); err != nil {
+		cr.Status.AtProvider.Message = fmt.Sprintf("Cutover complete but old PG %s cleanup failed (will retry): %v", oldPGID, err)
+		// Store old PG ID so we can retry cleanup on next reconcile
+		cr.Status.AtProvider.PreviousProcessGroupID = oldPGID
+	}
+
+	// Set CurrentVersion from the new PG's version control info immediately.
+	// Without this, CurrentVersion stays stale (from the old PG's VCI read by Observe earlier
+	// in this reconcile cycle), which can trigger a spurious rollout on the next cycle
+	// if GetVersionControlInfo happens to fail.
+	vci, vciErr := e.nifi.GetVersionControlInfo(newPGID)
+	if vciErr == nil && vci.VersionControlInformation != nil {
+		if v, ok := vci.VersionControlInformation.Version.(float64); ok {
+			cr.Status.AtProvider.CurrentVersion = int32(v)
+		}
+	} else if cr.Spec.ForProvider.FlowVersion > 0 {
+		// Fallback: trust the spec value — we imported exactly this version
+		cr.Status.AtProvider.CurrentVersion = cr.Spec.ForProvider.FlowVersion
+	}
+
 	cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseActive
 	cr.Status.AtProvider.LastAppliedGeneration = cr.Generation
+	cr.Status.AtProvider.LastAppliedParameterHash = computeParameterHash(cr.Spec.ForProvider.ParameterContext)
 	cr.Status.AtProvider.Message = "Blue-green rollout completed successfully"
 
 	// Clean up old parameter context after successful cutover
@@ -719,33 +758,58 @@ func (e *external) doStateChange(ctx context.Context, cr *v1alpha1.ManagedFlow) 
 
 	cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseActive
 	cr.Status.AtProvider.LastAppliedGeneration = cr.Generation
+	cr.Status.AtProvider.LastAppliedParameterHash = computeParameterHash(cr.Spec.ForProvider.ParameterContext)
 	cr.Status.AtProvider.Message = "State change completed"
 	return managed.ExternalUpdate{}, nil
 }
 
-// isOnlyStateChange returns true when the only difference between spec and status
-// is the desiredState (RUNNING/STOPPED), not flow version or parameters.
+// isOnlyStateChange returns true when the only meaningful change is desiredState
+// (RUNNING/STOPPED) or non-rollout fields (position, rollout config).
+// Only flow version changes and parameter changes should trigger a rollout.
 func isOnlyStateChange(cr *v1alpha1.ManagedFlow) bool {
 	p := cr.Spec.ForProvider
 
-	// If flow version changed, it's not just a state change
+	// If flow version changed → rollout needed
 	if p.FlowVersion > 0 && cr.Status.AtProvider.CurrentVersion != p.FlowVersion {
 		return false
 	}
 
-	// If generation changed (parameters, etc.), it's not just a state change
-	// UNLESS the only thing that changed is desiredState (which also bumps generation).
-	// We detect this by checking if flow version and parameters are the same.
-	// Since we can't deep-compare parameters easily, we rely on generation:
-	// if lastAppliedGeneration is set and generation differs, something changed.
-	// But we need to distinguish state-only changes from param changes.
-	// The simplest approach: if the PG is in the wrong run state, treat it as state change.
-	// Other generation changes will fall through to rollout.
-	if cr.Status.AtProvider.LastAppliedGeneration > 0 && cr.Generation != cr.Status.AtProvider.LastAppliedGeneration {
+	// If inline parameters changed → rollout needed
+	// Compare a hash of the current parameters with the last applied hash.
+	// This avoids false positives from position/desiredState/config changes
+	// (which also bump metadata.generation).
+	if p.ParameterContext != nil {
+		currentHash := computeParameterHash(p.ParameterContext)
+		if cr.Status.AtProvider.LastAppliedParameterHash != "" && currentHash != cr.Status.AtProvider.LastAppliedParameterHash {
+			return false
+		}
+		// If LastAppliedParameterHash is empty (first deploy), let the state machine handle it
+		if cr.Status.AtProvider.LastAppliedParameterHash == "" && cr.Status.AtProvider.LastAppliedGeneration == 0 {
+			return false
+		}
+	}
+
+	// If parameterContextId (external reference) changed → rollout needed
+	if p.ParameterContextID != "" && cr.Status.AtProvider.ParameterContextID != "" && p.ParameterContextID != cr.Status.AtProvider.ParameterContextID {
 		return false
 	}
 
 	return true
+}
+
+// computeParameterHash returns a stable hash of the inline parameter context config.
+// Used to detect actual parameter changes without relying on metadata.generation
+// (which also increments for position, desiredState, and other non-rollout fields).
+func computeParameterHash(pc *v1alpha1.ParameterContextConfig) string {
+	if pc == nil {
+		return ""
+	}
+	data, err := json.Marshal(pc)
+	if err != nil {
+		return ""
+	}
+	h := sha256.Sum256(data)
+	return fmt.Sprintf("%x", h[:8])
 }
 
 // --- Helpers ---
@@ -772,8 +836,10 @@ func (e *external) resolveParameterContext(cr *v1alpha1.ManagedFlow) (string, er
 }
 
 // createParameterContextForGeneration creates a new parameter context with a generation-suffixed
-// name (e.g., "my-params-gen5"). If one with that name already exists (idempotency for retries),
-// it reuses it. The old parameter context ID is stored for cleanup after cutover.
+// name (e.g., "my-params-gen5"). If one with that name already exists AND is not the current
+// active context, it reuses it (idempotency for retries). If the existing one IS the active
+// context (same generation used for both Create and rollout), it creates a separate one with
+// a "-bg" suffix so the old and new PGs don't share the same parameter context.
 func (e *external) createParameterContextForGeneration(cr *v1alpha1.ManagedFlow) (string, error) {
 	cfg := cr.Spec.ForProvider.ParameterContext
 	oldParamCtxID := cr.Status.AtProvider.ParameterContextID
@@ -784,12 +850,25 @@ func (e *external) createParameterContextForGeneration(cr *v1alpha1.ManagedFlow)
 	// Check if a parameter context with this name already exists (idempotency)
 	existingID, err := e.findParameterContextByName(newName)
 	if err == nil && existingID != "" {
-		// Already exists — reuse it (previous attempt may have created it)
-		cr.Status.AtProvider.ParameterContextID = existingID
-		if oldParamCtxID != "" && oldParamCtxID != existingID {
-			cr.Status.AtProvider.PreviousParameterContextID = oldParamCtxID
+		if existingID == oldParamCtxID {
+			// The existing context is the one already assigned to the active PG.
+			// We need a separate one for the new PG during blue-green rollout.
+			newName = fmt.Sprintf("%s-gen%d-bg", cfg.Name, cr.Generation)
+			// Check if the -bg variant already exists (retry idempotency)
+			bgID, bgErr := e.findParameterContextByName(newName)
+			if bgErr == nil && bgID != "" {
+				cr.Status.AtProvider.ParameterContextID = bgID
+				cr.Status.AtProvider.PreviousParameterContextID = oldParamCtxID
+				return bgID, nil
+			}
+		} else {
+			// Different from active — safe to reuse (previous failed rollout attempt)
+			cr.Status.AtProvider.ParameterContextID = existingID
+			if oldParamCtxID != "" {
+				cr.Status.AtProvider.PreviousParameterContextID = oldParamCtxID
+			}
+			return existingID, nil
 		}
-		return existingID, nil
 	}
 
 	entity := buildInlineParameterContextEntity(cfg)
@@ -947,7 +1026,7 @@ func (e *external) stopAndDeletePG(pgID string) error {
 	}
 
 	// Check if PG exists first
-	pg, err := e.nifi.GetProcessGroup(pgID)
+	_, err := e.nifi.GetProcessGroup(pgID)
 	if err != nil {
 		if nificlient.IsNotFound(err) {
 			return nil // Already gone
@@ -958,14 +1037,36 @@ func (e *external) stopAndDeletePG(pgID string) error {
 	// Stop all processors first (ignore errors — some may already be stopped or invalid)
 	_ = e.nifi.ScheduleProcessGroup(pgID, "STOPPED")
 
-	// Disable all controller services before deletion (ignore errors — some may already be disabled)
+	// Disable all controller services before deletion.
+	// NiFi disables services asynchronously, so we must wait for them to actually become DISABLED.
 	_ = e.nifi.ActivateControllerServicesInGroup(pgID, "DISABLED")
+
+	// Wait for all services to be fully disabled (up to 30 seconds)
+	for attempt := 0; attempt < 15; attempt++ {
+		allDisabled := true
+		services, svcErr := e.nifi.ListControllerServicesInGroup(pgID)
+		if svcErr != nil {
+			break // Can't check — proceed with delete attempt anyway
+		}
+		for _, svc := range services {
+			if svc.Component != nil && !strings.EqualFold(svc.Component.State, "DISABLED") {
+				allDisabled = false
+				break
+			}
+		}
+		if allDisabled {
+			break
+		}
+		time.Sleep(2 * time.Second)
+		// Re-request disable in case some services have dependencies that are now disabled
+		_ = e.nifi.ActivateControllerServicesInGroup(pgID, "DISABLED")
+	}
 
 	// Drop all queued FlowFiles to allow deletion of PG with queued data
 	_ = e.nifi.EmptyAllConnectionsInGroup(pgID)
 
 	// Refresh version after state changes (version increments on stop/disable)
-	pg, err = e.nifi.GetProcessGroup(pgID)
+	pg, err := e.nifi.GetProcessGroup(pgID)
 	if err != nil {
 		if nificlient.IsNotFound(err) {
 			return nil
@@ -1045,15 +1146,17 @@ func isTransitionalPhase(phase v1alpha1.ManagedFlowPhase) bool {
 	return false
 }
 
-// specChanged returns true if the desired spec diverges from what's currently deployed.
-// Used to detect version or parameter changes during transitional phases.
+// specChanged returns true if a rollout-worthy spec field changed (flow version or parameters).
+// Used to detect changes during transitional phases. Does NOT trigger on position/state changes.
 func specChanged(cr *v1alpha1.ManagedFlow) bool {
 	p := cr.Spec.ForProvider
 	if p.FlowVersion > 0 && cr.Status.AtProvider.CurrentVersion != p.FlowVersion {
 		return true
 	}
-	if cr.Status.AtProvider.LastAppliedGeneration > 0 && cr.Generation != cr.Status.AtProvider.LastAppliedGeneration {
-		return true
+	if p.ParameterContext != nil && cr.Status.AtProvider.LastAppliedParameterHash != "" {
+		if computeParameterHash(p.ParameterContext) != cr.Status.AtProvider.LastAppliedParameterHash {
+			return true
+		}
 	}
 	return false
 }
@@ -1084,15 +1187,25 @@ func isManagedFlowUpToDate(cr *v1alpha1.ManagedFlow, pg *nigoapi.ProcessGroupEnt
 		return false
 	}
 
-	// Detect any spec change (parameters, flow version, etc.) via generation
-	if cr.Status.AtProvider.LastAppliedGeneration > 0 && cr.Generation != cr.Status.AtProvider.LastAppliedGeneration {
-		return false
-	}
-
+	// Check flow version change
 	if p.FlowVersion > 0 && cr.Status.AtProvider.CurrentVersion != p.FlowVersion {
 		return false
 	}
 
+	// Check inline parameter changes via hash (not generation — generation also
+	// increments for position, desiredState, rollout config, etc.)
+	if p.ParameterContext != nil && cr.Status.AtProvider.LastAppliedParameterHash != "" {
+		if computeParameterHash(p.ParameterContext) != cr.Status.AtProvider.LastAppliedParameterHash {
+			return false
+		}
+	}
+
+	// Check external parameter context ID change
+	if p.ParameterContextID != "" && cr.Status.AtProvider.ParameterContextID != "" && p.ParameterContextID != cr.Status.AtProvider.ParameterContextID {
+		return false
+	}
+
+	// Check desiredState
 	desiredState := p.DesiredState
 	if desiredState == "" {
 		desiredState = "STOPPED"
