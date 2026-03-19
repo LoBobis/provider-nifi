@@ -158,6 +158,8 @@ func (e *external) Create(ctx context.Context, cr *v1alpha1.RegistryFlow) (manag
 		p.BucketID,
 		p.FlowID,
 		p.FlowVersion,
+		"",  // branch — RegistryFlow doesn't support branch selection
+		"",  // versionRaw — not needed for traditional registry
 		position,
 	)
 	if err != nil {

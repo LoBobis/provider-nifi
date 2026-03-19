@@ -130,11 +130,53 @@ func (e *external) Observe(ctx context.Context, cr *v1alpha1.ManagedFlow) (manag
 		cr.Status.AtProvider.ParameterContextID = pg.Component.ParameterContext.Id
 	}
 
-	// Get version control info
-	vci, err := e.nifi.GetVersionControlInfo(externalName)
-	if err == nil && vci.VersionControlInformation != nil {
-		if v, ok := vci.VersionControlInformation.Version.(float64); ok {
-			cr.Status.AtProvider.CurrentVersion = int32(v)
+	p := cr.Spec.ForProvider
+
+	// Get version control info for CurrentVersion tracking.
+	// IMPORTANT: For Git-based registries (branch is set), SKIP VCI version parsing entirely.
+	// Git registries return garbage in VCI's Version field (e.g., float64(7484) — some Git
+	// internal number, not a sequential version). This corrupts CurrentVersion and breaks
+	// auto-update detection. For Git registries, CurrentVersion is set authoritatively
+	// during Create and checkDrain (from the version count, not VCI).
+	if p.Branch == "" {
+		// Traditional NiFi Registry: VCI returns reliable integer versions
+		vci, err := e.nifi.GetVersionControlInfo(externalName)
+		if err == nil && vci.VersionControlInformation != nil {
+			switch v := vci.VersionControlInformation.Version.(type) {
+			case float64:
+				cr.Status.AtProvider.CurrentVersion = int32(v)
+			case string:
+				if parsed, parseErr := nificlient.ParseVersion(v); parseErr == nil {
+					cr.Status.AtProvider.CurrentVersion = parsed
+				}
+			}
+		}
+	}
+
+	// Auto-update: poll registry for the latest version and expose it in status.
+	// If autoUpdate is enabled and a new version is detected, signal not-up-to-date
+	// so the Update path triggers a blue-green rollout.
+	if p.AutoUpdate {
+		latestVer, latestErr := e.nifi.GetLatestFlowVersion(p.RegistryID, p.BucketID, p.FlowID, p.Branch)
+		if latestErr == nil && latestVer > 0 {
+			cr.Status.AtProvider.LatestRegistryVersion = latestVer
+		}
+	}
+
+	// Recover CurrentVersion if it's 0 (e.g., status was lost after Create, or deployed
+	// with an older version of the controller). Without this, auto-update can never
+	// trigger because the guard `CurrentVersion > 0` always fails.
+	if cr.Status.AtProvider.CurrentVersion == 0 && cr.Status.AtProvider.Phase == v1alpha1.ManagedFlowPhaseActive {
+		if cr.Status.AtProvider.LatestRegistryVersion > 0 {
+			// Assume we're on the latest version (we imported latest during Create).
+			// This establishes a baseline so future versions can be detected.
+			cr.Status.AtProvider.CurrentVersion = cr.Status.AtProvider.LatestRegistryVersion
+		} else {
+			// No LatestRegistryVersion either — try resolving from registry directly
+			latestVer, latestErr := e.nifi.GetLatestFlowVersion(p.RegistryID, p.BucketID, p.FlowID, p.Branch)
+			if latestErr == nil && latestVer > 0 {
+				cr.Status.AtProvider.CurrentVersion = latestVer
+			}
 		}
 	}
 
@@ -204,9 +246,22 @@ func (e *external) Create(ctx context.Context, cr *v1alpha1.ManagedFlow) (manage
 		position = &nigoapi.PositionDto{X: 0, Y: 0}
 	}
 
-	// 1. Import flow from registry
+	// 1. Resolve the flow version to import.
+	// We need both:
+	//   - importVersion (int32): for internal version tracking / auto-update comparison
+	//   - versionRaw (string): the actual value to pass to NiFi (commit SHA for Git, integer string for traditional)
+	importVersion := p.FlowVersion
+	var versionRaw string
+	if importVersion <= 0 {
+		latestNum, latestRaw, latestErr := e.nifi.GetLatestFlowVersionInfo(p.RegistryID, p.BucketID, p.FlowID, p.Branch)
+		if latestErr == nil && latestNum > 0 {
+			importVersion = latestNum
+			versionRaw = latestRaw // commit SHA for Git registries, integer string for traditional
+		}
+	}
+
 	result, err := e.nifi.ImportFlowFromRegistry(
-		p.ParentGroupID, p.RegistryID, p.BucketID, p.FlowID, p.FlowVersion, position,
+		p.ParentGroupID, p.RegistryID, p.BucketID, p.FlowID, importVersion, p.Branch, versionRaw, position,
 	)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, "cannot import flow from registry")
@@ -216,6 +271,11 @@ func (e *external) Create(ctx context.Context, cr *v1alpha1.ManagedFlow) (manage
 	cr.Status.AtProvider.ActiveProcessGroupID = result.Id
 	if result.Revision != nil && result.Revision.Version != nil {
 		cr.Status.AtProvider.Version = *result.Revision.Version
+	}
+	// Track the imported flow version directly (don't rely on VCI which may return
+	// commit SHAs for Git registries instead of integer versions).
+	if importVersion > 0 {
+		cr.Status.AtProvider.CurrentVersion = importVersion
 	}
 
 	// 2. Rename PG to match the ManagedFlow resource name
@@ -230,18 +290,22 @@ func (e *external) Create(ctx context.Context, cr *v1alpha1.ManagedFlow) (manage
 		}
 	}
 
-	// 3. Create inline parameter context if specified, or assign existing one
+	// 3. Create inline parameter context if specified, or assign existing one.
+	// IMPORTANT: After PG is created and external name is set, ALL errors are non-fatal.
+	// If Create returns an error after import, Crossplane may not persist the external name,
+	// causing Create to run again on the next reconcile and creating duplicate PGs.
+	// The state machine will retry these steps on subsequent Update cycles.
 	paramCtxID, err := e.resolveParameterContext(cr)
 	if err != nil {
-		return managed.ExternalCreation{}, errors.Wrap(err, "cannot resolve parameter context")
+		cr.Status.AtProvider.Message = fmt.Sprintf("Warning: could not resolve parameter context (will retry): %v", err)
 	}
-	if paramCtxID != "" {
-		if err := e.assignParameterContext(result.Id, paramCtxID, cr.Status.AtProvider.Version); err != nil {
-			return managed.ExternalCreation{}, errors.Wrap(err, "cannot assign parameter context")
+	if paramCtxID != "" && err == nil {
+		if assignErr := e.assignParameterContext(result.Id, paramCtxID, cr.Status.AtProvider.Version); assignErr != nil {
+			cr.Status.AtProvider.Message = fmt.Sprintf("Warning: could not assign parameter context (will retry): %v", assignErr)
 		}
 	}
 
-	// 3. Enable all controller services (batch API)
+	// 4. Enable all controller services (batch API)
 	if err := e.nifi.ActivateControllerServicesInGroup(result.Id, "ENABLED"); err != nil {
 		// Non-fatal: there may be no controller services. Log and continue.
 		cr.Status.AtProvider.Message = fmt.Sprintf("Warning: could not enable controller services: %v", err)
@@ -258,7 +322,13 @@ func (e *external) Update(ctx context.Context, cr *v1alpha1.ManagedFlow) (manage
 	strategy := getStrategy(cr)
 
 	switch phase {
-	case "", v1alpha1.ManagedFlowPhaseActive, v1alpha1.ManagedFlowPhaseFailed:
+	case "":
+		// Phase is empty — this means the resource exists but has never completed the initial
+		// state machine (e.g., Create's status write was lost). Resume the initial setup
+		// instead of triggering a blue-green rollout (which would create a DUPLICATE PG).
+		return e.enableServicesOnTarget(ctx, cr)
+
+	case v1alpha1.ManagedFlowPhaseActive, v1alpha1.ManagedFlowPhaseFailed:
 		// Check if this is only a desiredState change (start/stop) — handle without rollout
 		if isOnlyStateChange(cr) {
 			return e.doStateChange(ctx, cr)
@@ -299,6 +369,7 @@ func (e *external) Update(ctx context.Context, cr *v1alpha1.ManagedFlow) (manage
 		cr.Status.AtProvider.FailedGeneration = cr.Generation
 		cr.Status.AtProvider.Message = fmt.Sprintf("Rollback completed: version %d had errors, old PG is still active. Change spec to retry.", cr.Spec.ForProvider.FlowVersion)
 		cr.Status.AtProvider.PendingProcessGroupID = ""
+		cr.Status.AtProvider.PendingFlowVersion = 0
 		cr.Status.AtProvider.HealthCheckStartTime = nil
 		return managed.ExternalUpdate{}, nil
 	}
@@ -356,26 +427,58 @@ func (e *external) startBlueGreenRollout(ctx context.Context, cr *v1alpha1.Manag
 		position = &nigoapi.PositionDto{X: 0, Y: 0}
 	}
 
+	// Determine which version to import.
+	// We need both importVersion (int32 for tracking) and versionRaw (string for NiFi API).
+	importVersion := p.FlowVersion
+	var versionRaw string
+	if importVersion <= 0 && cr.Status.AtProvider.LatestRegistryVersion > 0 {
+		importVersion = cr.Status.AtProvider.LatestRegistryVersion
+	}
+	// Always resolve the raw version string for Git registries (need commit SHA for import)
+	latestNum, latestRaw, latestErr := e.nifi.GetLatestFlowVersionInfo(p.RegistryID, p.BucketID, p.FlowID, p.Branch)
+	if latestErr == nil {
+		versionRaw = latestRaw
+		if importVersion <= 0 && latestNum > 0 {
+			importVersion = latestNum
+		}
+	}
+
+	// SAFEGUARD: Don't create a duplicate PG if we're already on the target version
+	// and parameters haven't changed. This prevents spurious rollouts triggered by
+	// non-rollout spec changes (position, desiredState) or transient state mismatches.
+	if importVersion > 0 && importVersion == cr.Status.AtProvider.CurrentVersion {
+		currentHash := computeParameterHash(p.ParameterContext)
+		if cr.Status.AtProvider.LastAppliedParameterHash == "" || currentHash == cr.Status.AtProvider.LastAppliedParameterHash {
+			// Same version AND same parameters — nothing to roll out
+			cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseActive
+			cr.Status.AtProvider.LastAppliedGeneration = cr.Generation
+			cr.Status.AtProvider.LastAppliedParameterHash = currentHash
+			cr.Status.AtProvider.Message = fmt.Sprintf("Already on version %d with matching parameters, skipping rollout", importVersion)
+			return managed.ExternalUpdate{}, nil
+		}
+	}
+
 	// Import new version as a separate PG
 	newPG, err := e.nifi.ImportFlowFromRegistry(
-		p.ParentGroupID, p.RegistryID, p.BucketID, p.FlowID, p.FlowVersion, position,
+		p.ParentGroupID, p.RegistryID, p.BucketID, p.FlowID, importVersion, p.Branch, versionRaw, position,
 	)
 	if err != nil {
 		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot import new flow version for blue-green rollout")
 	}
 
 	cr.Status.AtProvider.PendingProcessGroupID = newPG.Id
+	cr.Status.AtProvider.PendingFlowVersion = importVersion // Track the integer version we imported (VCI may return commit SHA for Git registries)
 	cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseImporting
 	cr.Status.AtProvider.FailedFlowVersion = 0 // Clear any previous failure
 	cr.Status.AtProvider.FailedGeneration = 0
-	cr.Status.AtProvider.Message = fmt.Sprintf("Blue-green rollout: imported new PG %s", newPG.Id)
+	cr.Status.AtProvider.Message = fmt.Sprintf("Blue-green rollout: imported new PG %s (version %d)", newPG.Id, importVersion)
 
 	// Rename new PG to match ManagedFlow name with version suffix
 	var newPGVersion int64
 	if newPG.Revision != nil && newPG.Revision.Version != nil {
 		newPGVersion = *newPG.Revision.Version
 	}
-	pendingName := fmt.Sprintf("%s-v%d", cr.Name, p.FlowVersion)
+	pendingName := fmt.Sprintf("%s-v%d", cr.Name, importVersion)
 	if err := e.renamePG(newPG.Id, pendingName, newPGVersion); err != nil {
 		cr.Status.AtProvider.Message = fmt.Sprintf("Blue-green rollout: imported new PG %s (rename failed: %v)", newPG.Id, err)
 	}
@@ -614,6 +717,15 @@ func (e *external) checkHealth(ctx context.Context, cr *v1alpha1.ManagedFlow) (m
 		cr.Status.AtProvider.HealthCheckStartTime = nil
 		now := metav1.Now()
 		cr.Status.AtProvider.LastRolloutTime = &now
+		// Ensure CurrentVersion is set — it may have been lost if Create's status write failed.
+		// This is the last chance to set it before the flow goes Active.
+		if cr.Status.AtProvider.CurrentVersion == 0 {
+			p := cr.Spec.ForProvider
+			latestVer, latestErr := e.nifi.GetLatestFlowVersion(p.RegistryID, p.BucketID, p.FlowID, p.Branch)
+			if latestErr == nil && latestVer > 0 {
+				cr.Status.AtProvider.CurrentVersion = latestVer
+			}
+		}
 	}
 
 	return managed.ExternalUpdate{}, nil
@@ -669,15 +781,12 @@ func (e *external) checkDrain(ctx context.Context, cr *v1alpha1.ManagedFlow) (ma
 		cr.Status.AtProvider.PreviousProcessGroupID = oldPGID
 	}
 
-	// Set CurrentVersion from the new PG's version control info immediately.
-	// Without this, CurrentVersion stays stale (from the old PG's VCI read by Observe earlier
-	// in this reconcile cycle), which can trigger a spurious rollout on the next cycle
-	// if GetVersionControlInfo happens to fail.
-	vci, vciErr := e.nifi.GetVersionControlInfo(newPGID)
-	if vciErr == nil && vci.VersionControlInformation != nil {
-		if v, ok := vci.VersionControlInformation.Version.(float64); ok {
-			cr.Status.AtProvider.CurrentVersion = int32(v)
-		}
+	// Set CurrentVersion from PendingFlowVersion — this is the integer version we tracked
+	// at import time. We do NOT rely on VCI here because Git-based registries return commit
+	// SHAs (not integers) in VCI's Version field, which breaks int32 version tracking.
+	if cr.Status.AtProvider.PendingFlowVersion > 0 {
+		cr.Status.AtProvider.CurrentVersion = cr.Status.AtProvider.PendingFlowVersion
+		cr.Status.AtProvider.PendingFlowVersion = 0 // Clear after cutover
 	} else if cr.Spec.ForProvider.FlowVersion > 0 {
 		// Fallback: trust the spec value — we imported exactly this version
 		cr.Status.AtProvider.CurrentVersion = cr.Spec.ForProvider.FlowVersion
@@ -771,6 +880,13 @@ func isOnlyStateChange(cr *v1alpha1.ManagedFlow) bool {
 
 	// If flow version changed → rollout needed
 	if p.FlowVersion > 0 && cr.Status.AtProvider.CurrentVersion != p.FlowVersion {
+		return false
+	}
+
+	// If auto-update detected a newer version in registry → rollout needed
+	if p.AutoUpdate && cr.Status.AtProvider.LatestRegistryVersion > 0 &&
+		cr.Status.AtProvider.CurrentVersion > 0 &&
+		cr.Status.AtProvider.LatestRegistryVersion > cr.Status.AtProvider.CurrentVersion {
 		return false
 	}
 
@@ -1187,8 +1303,17 @@ func isManagedFlowUpToDate(cr *v1alpha1.ManagedFlow, pg *nigoapi.ProcessGroupEnt
 		return false
 	}
 
-	// Check flow version change
+	// Check flow version change (explicit version pinning)
 	if p.FlowVersion > 0 && cr.Status.AtProvider.CurrentVersion != p.FlowVersion {
+		return false
+	}
+
+	// Auto-update: if enabled and a newer version exists in the registry, trigger rollout.
+	// This allows the controller to automatically deploy new versions pushed to the registry
+	// (e.g., when someone pushes a new commit to main in a Git-based registry).
+	if p.AutoUpdate && cr.Status.AtProvider.LatestRegistryVersion > 0 &&
+		cr.Status.AtProvider.CurrentVersion > 0 &&
+		cr.Status.AtProvider.LatestRegistryVersion > cr.Status.AtProvider.CurrentVersion {
 		return false
 	}
 

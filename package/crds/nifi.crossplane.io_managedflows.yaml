@@ -31,6 +31,10 @@ spec:
     - jsonPath: .status.atProvider.currentVersion
       name: VERSION
       type: integer
+    - jsonPath: .status.atProvider.latestRegistryVersion
+      name: LATEST
+      priority: 1
+      type: integer
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
@@ -65,6 +69,18 @@ spec:
                 description: ManagedFlowParameters are the configurable fields for
                   a ManagedFlow.
                 properties:
+                  autoUpdate:
+                    description: |-
+                      AutoUpdate enables automatic rollout when a new version is pushed to the registry.
+                      When enabled, the controller polls the registry for the latest version and triggers
+                      a blue-green rollout automatically when a new version is detected.
+                      Works with both traditional NiFi Registry and Git-based registries (NiFi 2.x).
+                    type: boolean
+                  branch:
+                    description: |-
+                      Branch is the Git branch to use when the registry is Git-based (NiFi 2.x).
+                      If not specified, the registry's default branch is used.
+                    type: string
                   bucketId:
                     description: BucketID is the ID of the bucket in the registry.
                     type: string
@@ -82,7 +98,7 @@ spec:
                   flowVersion:
                     description: |-
                       FlowVersion is the version of the flow to import.
-                      Use -1 or 0 for the latest version.
+                      Use 0 to import the latest version available in the registry.
                     format: int32
                     type: integer
                   parameterContext:
@@ -278,6 +294,12 @@ spec:
                     description: CurrentVersion is the currently deployed flow version.
                     format: int32
                     type: integer
+                  latestRegistryVersion:
+                    description: |-
+                      LatestRegistryVersion is the latest version available in the registry.
+                      Only populated when autoUpdate is enabled.
+                    format: int32
+                    type: integer
                   drainStartTime:
                     description: DrainStartTime is when queue draining began during
                       blue-green cutover.
@@ -330,6 +352,13 @@ spec:
                       PreviousParameterContextID is the ID of the old parameter context pending deletion
                       after a parameter rotation. Cleared after successful cleanup.
                     type: string
+                  pendingFlowVersion:
+                    description: |-
+                      PendingFlowVersion is the version that was imported for the pending PG
+                      during a blue-green rollout. Used to set CurrentVersion after cutover
+                      without relying on VCI (which may return commit SHAs for Git registries).
+                    format: int32
+                    type: integer
                   pendingProcessGroupId:
                     description: |-
                       PendingProcessGroupID is the NiFi-assigned ID of the new process group

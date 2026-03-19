@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/antihax/optional"
@@ -415,24 +416,37 @@ func (c *NiFiClient) DeleteParameterContext(id string, version int64) error {
 // --- Registry / Version Control Operations ---
 
 // ImportFlowFromRegistry creates a versioned process group from a NiFi Registry flow.
-func (c *NiFiClient) ImportFlowFromRegistry(parentGroupID string, registryID, bucketID, flowID string, flowVersion int32, position *nigoapi.PositionDto) (*nigoapi.ProcessGroupEntity, error) {
-	var version interface{}
-	if flowVersion <= 0 {
-		version = int32(-1)
+// Pass an empty branch string to use the registry's default branch.
+// For Git-based registries, flowVersion should be resolved to a concrete version
+// For Git-based registries (branch is set), versionRaw should be the commit SHA
+// from GetLatestFlowVersionInfo. Git registries require commit SHAs, not integers.
+// For traditional NiFi Registry (no branch), flowVersion is used (int32, or -1 for latest).
+func (c *NiFiClient) ImportFlowFromRegistry(parentGroupID string, registryID, bucketID, flowID string, flowVersion int32, branch string, versionRaw string, position *nigoapi.PositionDto) (*nigoapi.ProcessGroupEntity, error) {
+	var initialVersion int64
+	vci := &nigoapi.VersionControlInformationDto{
+		RegistryId: registryID,
+		BucketId:   bucketID,
+		FlowId:     flowID,
+	}
+	if branch != "" {
+		vci.Branch = branch
+		if versionRaw != "" {
+			// Git registry: pass the commit SHA as a string
+			vci.Version = versionRaw
+		}
+		// If versionRaw is empty, Version is nil → NiFi should use latest on branch
+	} else if flowVersion > 0 {
+		// Traditional NiFi Registry: use the explicit integer version
+		vci.Version = flowVersion
 	} else {
-		version = flowVersion
+		// Traditional NiFi Registry: -1 means "latest"
+		vci.Version = int32(-1)
 	}
 
-	var initialVersion int64
 	entity := nigoapi.ProcessGroupEntity{
 		Component: &nigoapi.ProcessGroupDto{
-			Position: position,
-			VersionControlInformation: &nigoapi.VersionControlInformationDto{
-				RegistryId: registryID,
-				BucketId:   bucketID,
-				FlowId:     flowID,
-				Version:    version,
-			},
+			Position:                  position,
+			VersionControlInformation: vci,
 		},
 		Revision: &nigoapi.RevisionDto{
 			Version: &initialVersion,
@@ -462,6 +476,89 @@ func (c *NiFiClient) ChangeFlowVersion(processGroupID string, vci nigoapi.Versio
 		return wrapNiFiError(err, resp, "change flow version for %s", processGroupID)
 	}
 	return nil
+}
+
+// GetFlowVersions retrieves all available versions for a flow in a registry.
+// Optionally pass a branch name for Git-based registries (NiFi 2.x).
+func (c *NiFiClient) GetFlowVersions(registryID, bucketID, flowID, branch string) ([]nigoapi.VersionedFlowSnapshotMetadataEntity, error) {
+	var opts *nigoapi.FlowApiGetVersionsOpts
+	if branch != "" {
+		opts = &nigoapi.FlowApiGetVersionsOpts{
+			Branch: optional.NewString(branch),
+		}
+	}
+	result, resp, _, err := c.client.FlowApi.GetVersions(c.ctx, registryID, bucketID, flowID, opts)
+	if err != nil {
+		return nil, wrapNiFiError(err, resp, "get flow versions for registry=%s bucket=%s flow=%s", registryID, bucketID, flowID)
+	}
+	return result.VersionedFlowSnapshotMetadataSet, nil
+}
+
+// GetLatestFlowVersion queries the registry for the latest version number.
+// Returns the version count for internal tracking. For the raw version string
+// (needed for Git registry imports), use GetLatestFlowVersionInfo instead.
+func (c *NiFiClient) GetLatestFlowVersion(registryID, bucketID, flowID, branch string) (int32, error) {
+	ver, _, err := c.GetLatestFlowVersionInfo(registryID, bucketID, flowID, branch)
+	return ver, err
+}
+
+// GetLatestFlowVersionInfo queries the registry for the latest version of a flow.
+// Returns:
+//   - versionNum: the sequential version number (for internal tracking / auto-update comparison)
+//   - versionRaw: the raw version string from the registry (commit SHA for Git, integer string for traditional)
+//   - err: any error from the API call
+//
+// For traditional NiFi Registry, versionRaw is an integer string ("1", "2", "3").
+// For Git-based registries, versionRaw is a commit SHA. In that case, versionNum
+// is derived from the count of versions (since Git registry versions are sequential).
+func (c *NiFiClient) GetLatestFlowVersionInfo(registryID, bucketID, flowID, branch string) (int32, string, error) {
+	versions, err := c.GetFlowVersions(registryID, bucketID, flowID, branch)
+	if err != nil {
+		return 0, "", err
+	}
+	if len(versions) == 0 {
+		return 0, "", nil
+	}
+
+	// Try to find the highest parseable integer version (traditional registry)
+	var latestNum int32
+	var latestRaw string
+	for _, v := range versions {
+		if v.VersionedFlowSnapshotMetadata != nil {
+			raw := v.VersionedFlowSnapshotMetadata.Version
+			if ver, err := ParseVersion(raw); err == nil && ver > latestNum {
+				latestNum = ver
+				latestRaw = raw
+			}
+		}
+	}
+
+	// Fallback for Git-based registries: version strings are commit SHAs.
+	// Use the count of versions as the sequential version number, and the
+	// last entry's version string (commit SHA) as the raw version for import.
+	if latestNum == 0 {
+		latestNum = int32(len(versions))
+		// The last entry is typically the most recent version
+		last := versions[len(versions)-1]
+		if last.VersionedFlowSnapshotMetadata != nil {
+			latestRaw = last.VersionedFlowSnapshotMetadata.Version
+		}
+	}
+
+	return latestNum, latestRaw, nil
+}
+
+// ParseVersion converts a version string (from registry metadata) to int32.
+// Uses strict integer parsing — the ENTIRE string must be a valid integer.
+// This is critical for Git-based registries where VCI returns commit SHAs
+// (e.g., "1a2b3c4"). fmt.Sscanf("%d") would partially parse leading digits,
+// corrupting version tracking and triggering endless spurious rollouts.
+func ParseVersion(s string) (int32, error) {
+	v, err := strconv.ParseInt(strings.TrimSpace(s), 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("not a valid integer version: %q", s)
+	}
+	return int32(v), nil
 }
 
 // --- Flow Operations (Bulletins, Status, Controller Service Activation) ---

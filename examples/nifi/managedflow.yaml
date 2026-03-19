@@ -1,20 +1,57 @@
+#apiVersion: nifi.crossplane.io/v1alpha1
+#kind: ManagedFlow
+#metadata:
+#  name: eyal-check4
+#  namespace: crossplane-system
+#spec:
+#  forProvider:
+#    parentGroupId: "root"
+#    registryId: "f7d0fd58-019c-1000-2c34-23b2c308a048"
+#    bucketId: "5bd7ee9c-c6fa-4a7c-9606-ceeaebcd721f"
+#    flowId: "b1ef6be1-fb5c-4988-87e8-a3cfcc504830"
+#    flowVersion: 1
+#    parameterContext:
+#      name: "eyal-check4"
+#      parameters:
+#        - name: message
+#          value: "hi"
+#    desiredState: RUNNING
+#    position:
+#      "x": 400
+#      "y": 200
+#    rollout:
+#      strategy: BlueGreen
+#      healthCheck:
+#        stabilizationWindow: "30s"
+#      drainTimeout: "60s"
+#  providerConfigRef:
+#    name: default
+#    kind: ProviderConfig
+
+#---
+# Auto-update example: automatically deploy new versions pushed to the registry.
+# Works with both traditional NiFi Registry and Git-based registries (NiFi 2.x).
+# When autoUpdate is enabled with flowVersion: 0, the controller polls for the latest
+# version and triggers a blue-green rollout whenever a new version appears.
 apiVersion: nifi.crossplane.io/v1alpha1
 kind: ManagedFlow
 metadata:
-  name: eyal-check4
+  name: eyal-pipeline3
   namespace: crossplane-system
 spec:
   forProvider:
     parentGroupId: "root"
-    registryId: "f7d0fd58-019c-1000-2c34-23b2c308a048"
-    bucketId: "5bd7ee9c-c6fa-4a7c-9606-ceeaebcd721f"
-    flowId: "b1ef6be1-fb5c-4988-87e8-a3cfcc504830"
-    flowVersion: 1
+    registryId: "07af5fa3-019d-1000-6512-56bc5b546486"
+    bucketId: "default"
+    flowId: "eyal-flow"
+    flowVersion: 0           # 0 = latest version
+    autoUpdate: true          # automatically roll out new versions
+    branch: "main"            # Git branch (optional, for Git-based registries)
     parameterContext:
-      name: "eyal-check4"
+      name: "eyal-pipeline3"
       parameters:
-        - name: message
-          value: "hi"
+        - name: input_topic
+          value: "events"
     desiredState: RUNNING
     position:
       "x": 400
@@ -27,25 +64,3 @@ spec:
   providerConfigRef:
     name: default
     kind: ProviderConfig
-#---
-#apiVersion: nifi.crossplane.io/v1alpha1
-#kind: ManagedFlow
-#metadata:
-#  name: etl-pipeline-inplace
-#  namespace: crossplane-system
-#spec:
-#  forProvider:
-#    parentGroupId: "root"
-#    registryId: "<nifi-registry-client-id>"
-#    bucketId: "<registry-bucket-id>"
-#    flowId: "<versioned-flow-id>"
-#    flowVersion: 1
-#    desiredState: RUNNING
-#    position:
-#      "x": 800
-#      "y": 200
-#    rollout:
-#      strategy: InPlace
-#  providerConfigRef:
-#    name: default
-#    kind: ProviderConfig
