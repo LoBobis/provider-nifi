@@ -2,6 +2,7 @@ package parametercontext
 
 import (
 	"context"
+	"fmt"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
@@ -13,6 +14,8 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/statemetrics"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -88,11 +91,12 @@ func (c *connector) Connect(ctx context.Context, cr *v1alpha1.ParameterContext) 
 	if err != nil {
 		return nil, err
 	}
-	return &external{nifi: nifi}, nil
+	return &external{nifi: nifi, kube: c.kube}, nil
 }
 
 type external struct {
 	nifi *nificlient.NiFiClient
+	kube client.Client
 }
 
 func (e *external) Observe(ctx context.Context, cr *v1alpha1.ParameterContext) (managed.ExternalObservation, error) {
@@ -137,7 +141,10 @@ func (e *external) Observe(ctx context.Context, cr *v1alpha1.ParameterContext) (
 func (e *external) Create(ctx context.Context, cr *v1alpha1.ParameterContext) (managed.ExternalCreation, error) {
 	cr.Status.SetConditions(xpv1.Creating())
 
-	entity := buildParameterContextEntity(cr)
+	entity, err := e.buildParameterContextEntity(ctx, cr)
+	if err != nil {
+		return managed.ExternalCreation{}, errors.Wrap(err, "cannot build parameter context entity")
+	}
 
 	result, err := e.nifi.CreateParameterContext(entity)
 	if err != nil {
@@ -156,7 +163,10 @@ func (e *external) Create(ctx context.Context, cr *v1alpha1.ParameterContext) (m
 func (e *external) Update(ctx context.Context, cr *v1alpha1.ParameterContext) (managed.ExternalUpdate, error) {
 	externalName := meta.GetExternalName(cr)
 
-	entity := buildParameterContextEntity(cr)
+	entity, err := e.buildParameterContextEntity(ctx, cr)
+	if err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot build parameter context entity")
+	}
 	entity.Id = externalName
 	entity.Component.Id = externalName
 	entity.Revision = &nigoapi.RevisionDto{
@@ -191,7 +201,7 @@ func (e *external) Disconnect(ctx context.Context) error {
 	return nil
 }
 
-func buildParameterContextEntity(cr *v1alpha1.ParameterContext) nigoapi.ParameterContextEntity {
+func (e *external) buildParameterContextEntity(ctx context.Context, cr *v1alpha1.ParameterContext) (nigoapi.ParameterContextEntity, error) {
 	p := cr.Spec.ForProvider
 
 	component := &nigoapi.ParameterContextDto{
@@ -209,8 +219,13 @@ func buildParameterContextEntity(cr *v1alpha1.ParameterContext) nigoapi.Paramete
 				Description: &desc,
 				Sensitive:   param.Sensitive,
 			}
-			if param.Value != nil {
-				paramDto.Value = param.Value
+			// Resolve value: valueFromSecret takes precedence over inline value
+			val, err := resolveParameterValue(ctx, e.kube, param, cr.Namespace)
+			if err != nil {
+				return nigoapi.ParameterContextEntity{}, errors.Wrapf(err, "cannot resolve value for parameter %q", param.Name)
+			}
+			if val != nil {
+				paramDto.Value = val
 			}
 			params[i] = nigoapi.ParameterEntity{
 				Parameter: &paramDto,
@@ -236,7 +251,34 @@ func buildParameterContextEntity(cr *v1alpha1.ParameterContext) nigoapi.Paramete
 		Revision: &nigoapi.RevisionDto{
 			Version: &initialVersion,
 		},
+	}, nil
+}
+
+// resolveParameterValue resolves the parameter value from either inline value or a Kubernetes Secret.
+// If valueFromSecret is set, it takes precedence over the inline value.
+func resolveParameterValue(ctx context.Context, kube client.Client, param v1alpha1.Parameter, defaultNamespace string) (*string, error) {
+	if param.ValueFromSecret != nil {
+		ref := param.ValueFromSecret
+		ns := ref.Namespace
+		if ns == "" {
+			ns = defaultNamespace
+		}
+
+		secret := &corev1.Secret{}
+		if err := kube.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: ns}, secret); err != nil {
+			return nil, fmt.Errorf("cannot get secret %s/%s: %w", ns, ref.Name, err)
+		}
+
+		data, ok := secret.Data[ref.Key]
+		if !ok {
+			return nil, fmt.Errorf("key %q not found in secret %s/%s", ref.Key, ns, ref.Name)
+		}
+
+		val := string(data)
+		return &val, nil
 	}
+
+	return param.Value, nil
 }
 
 func isParameterContextUpToDate(cr *v1alpha1.ParameterContext, pc *nigoapi.ParameterContextEntity) bool {

@@ -52,6 +52,13 @@ spec:
       parameters:
         - name: input_topic
           value: "events"
+        # Sensitive parameter with value from a Kubernetes Secret:
+        # - name: db_password
+        #   sensitive: true
+        #   valueFromSecret:
+        #     name: nifi-secrets        # Secret name
+        #     key: db-password           # Key within the Secret
+        #     # namespace: crossplane-system  # Optional, defaults to resource namespace
     desiredState: RUNNING
     position:
       "x": 400

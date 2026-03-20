@@ -87,11 +87,37 @@ spec:
                           description: Name is the parameter name.
                           type: string
                         sensitive:
-                          description: Sensitive marks the parameter as sensitive.
+                          description: |-
+                            Sensitive marks the parameter as sensitive. When true, the parameter value
+                            will be encrypted at rest in NiFi and masked in the NiFi UI.
+                            For sensitive parameters, it is strongly recommended to use valueFromSecret
+                            instead of value to avoid storing secrets in the Kubernetes resource spec.
                           type: boolean
                         value:
-                          description: Value is the parameter value.
+                          description: |-
+                            Value is the parameter value. For sensitive parameters, prefer using
+                            valueFromSecret instead to avoid storing secrets in plain text.
                           type: string
+                        valueFromSecret:
+                          description: |-
+                            ValueFromSecret references a Kubernetes Secret key to use as the parameter value.
+                            This is the recommended way to set sensitive parameter values.
+                            If both value and valueFromSecret are set, valueFromSecret takes precedence.
+                          properties:
+                            key:
+                              description: Key within the Secret to select.
+                              type: string
+                            name:
+                              description: Name of the Secret.
+                              type: string
+                            namespace:
+                              description: Namespace of the Secret. Defaults to the namespace
+                                of the resource.
+                              type: string
+                          required:
+                          - key
+                          - name
+                          type: object
                       required:
                       - name
                       type: object

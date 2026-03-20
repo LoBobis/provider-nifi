@@ -19,7 +19,9 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/statemetrics"
 	"github.com/pkg/errors"
 	nigoapi "github.com/konpyutaika/nigoapi/pkg/nifi"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -99,11 +101,12 @@ func (c *connector) Connect(ctx context.Context, cr *v1alpha1.ManagedFlow) (mana
 	if err != nil {
 		return nil, err
 	}
-	return &external{nifi: nifi}, nil
+	return &external{nifi: nifi, kube: c.kube}, nil
 }
 
 type external struct {
 	nifi *nificlient.NiFiClient
+	kube client.Client
 }
 
 func (e *external) Observe(ctx context.Context, cr *v1alpha1.ManagedFlow) (managed.ExternalObservation, error) {
@@ -295,7 +298,7 @@ func (e *external) Create(ctx context.Context, cr *v1alpha1.ManagedFlow) (manage
 	// If Create returns an error after import, Crossplane may not persist the external name,
 	// causing Create to run again on the next reconcile and creating duplicate PGs.
 	// The state machine will retry these steps on subsequent Update cycles.
-	paramCtxID, err := e.resolveParameterContext(cr)
+	paramCtxID, err := e.resolveParameterContext(ctx, cr)
 	if err != nil {
 		cr.Status.AtProvider.Message = fmt.Sprintf("Warning: could not resolve parameter context (will retry): %v", err)
 	}
@@ -484,7 +487,7 @@ func (e *external) startBlueGreenRollout(ctx context.Context, cr *v1alpha1.Manag
 	}
 
 	// Assign parameter context to new PG (inline or by ID)
-	paramCtxID, err := e.resolveParameterContext(cr)
+	paramCtxID, err := e.resolveParameterContext(ctx, cr)
 	if err != nil {
 		_ = e.stopAndDeletePG(newPG.Id)
 		cr.Status.AtProvider.PendingProcessGroupID = ""
@@ -935,12 +938,12 @@ func computeParameterHash(pc *v1alpha1.ParameterContextConfig) string {
 // to avoid conflicts with any existing context (blue-green rollout runs both PGs in parallel).
 // After successful cutover, the old parameter context is cleaned up.
 // If parameterContextId is specified, it returns that ID directly.
-func (e *external) resolveParameterContext(cr *v1alpha1.ManagedFlow) (string, error) {
+func (e *external) resolveParameterContext(ctx context.Context, cr *v1alpha1.ManagedFlow) (string, error) {
 	p := cr.Spec.ForProvider
 
 	// Inline parameter context takes precedence
 	if p.ParameterContext != nil {
-		return e.createParameterContextForGeneration(cr)
+		return e.createParameterContextForGeneration(ctx, cr)
 	}
 
 	// Direct ID reference
@@ -956,7 +959,7 @@ func (e *external) resolveParameterContext(cr *v1alpha1.ManagedFlow) (string, er
 // active context, it reuses it (idempotency for retries). If the existing one IS the active
 // context (same generation used for both Create and rollout), it creates a separate one with
 // a "-bg" suffix so the old and new PGs don't share the same parameter context.
-func (e *external) createParameterContextForGeneration(cr *v1alpha1.ManagedFlow) (string, error) {
+func (e *external) createParameterContextForGeneration(ctx context.Context, cr *v1alpha1.ManagedFlow) (string, error) {
 	cfg := cr.Spec.ForProvider.ParameterContext
 	oldParamCtxID := cr.Status.AtProvider.ParameterContextID
 
@@ -987,7 +990,10 @@ func (e *external) createParameterContextForGeneration(cr *v1alpha1.ManagedFlow)
 		}
 	}
 
-	entity := buildInlineParameterContextEntity(cfg)
+	entity, buildErr := e.buildInlineParameterContextEntity(ctx, cfg, cr.Namespace)
+	if buildErr != nil {
+		return "", errors.Wrap(buildErr, "cannot build parameter context entity")
+	}
 	entity.Component.Name = newName
 
 	newPC, err := e.nifi.CreateParameterContext(entity)
@@ -1059,7 +1065,7 @@ func (e *external) findParameterContextByName(name string) (string, error) {
 	return "", nil
 }
 
-func buildInlineParameterContextEntity(cfg *v1alpha1.ParameterContextConfig) nigoapi.ParameterContextEntity {
+func (e *external) buildInlineParameterContextEntity(ctx context.Context, cfg *v1alpha1.ParameterContextConfig, namespace string) (nigoapi.ParameterContextEntity, error) {
 	component := &nigoapi.ParameterContextDto{
 		Name:        cfg.Name,
 		Description: cfg.Description,
@@ -1074,8 +1080,13 @@ func buildInlineParameterContextEntity(cfg *v1alpha1.ParameterContextConfig) nig
 				Description: &desc,
 				Sensitive:   param.Sensitive,
 			}
-			if param.Value != nil {
-				paramDto.Value = param.Value
+			// Resolve value: valueFromSecret takes precedence over inline value
+			val, err := resolveParameterValue(ctx, e.kube, param, namespace)
+			if err != nil {
+				return nigoapi.ParameterContextEntity{}, errors.Wrapf(err, "cannot resolve value for parameter %q", param.Name)
+			}
+			if val != nil {
+				paramDto.Value = val
 			}
 			params[i] = nigoapi.ParameterEntity{
 				Parameter: &paramDto,
@@ -1100,7 +1111,34 @@ func buildInlineParameterContextEntity(cfg *v1alpha1.ParameterContextConfig) nig
 		Revision: &nigoapi.RevisionDto{
 			Version: &initialVersion,
 		},
+	}, nil
+}
+
+// resolveParameterValue resolves the parameter value from either inline value or a Kubernetes Secret.
+// If valueFromSecret is set, it takes precedence over the inline value.
+func resolveParameterValue(ctx context.Context, kube client.Client, param v1alpha1.Parameter, defaultNamespace string) (*string, error) {
+	if param.ValueFromSecret != nil {
+		ref := param.ValueFromSecret
+		ns := ref.Namespace
+		if ns == "" {
+			ns = defaultNamespace
+		}
+
+		secret := &corev1.Secret{}
+		if err := kube.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: ns}, secret); err != nil {
+			return nil, fmt.Errorf("cannot get secret %s/%s: %w", ns, ref.Name, err)
+		}
+
+		data, ok := secret.Data[ref.Key]
+		if !ok {
+			return nil, fmt.Errorf("key %q not found in secret %s/%s", ref.Key, ns, ref.Name)
+		}
+
+		val := string(data)
+		return &val, nil
 	}
+
+	return param.Value, nil
 }
 
 // renamePG renames a process group to the given name.

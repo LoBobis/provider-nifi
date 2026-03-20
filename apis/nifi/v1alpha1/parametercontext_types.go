@@ -10,21 +10,46 @@ import (
 	xpv2 "github.com/crossplane/crossplane-runtime/v2/apis/common/v2"
 )
 
+// SecretKeySelector selects a key from a Kubernetes Secret.
+type SecretKeySelector struct {
+	// Name of the Secret.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// Namespace of the Secret. Defaults to the namespace of the resource.
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+
+	// Key within the Secret to select.
+	// +kubebuilder:validation:Required
+	Key string `json:"key"`
+}
+
 // Parameter represents a single parameter in a parameter context.
 type Parameter struct {
 	// Name is the parameter name.
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 
-	// Value is the parameter value.
+	// Value is the parameter value. For sensitive parameters, prefer using
+	// valueFromSecret instead to avoid storing secrets in plain text.
 	// +optional
 	Value *string `json:"value,omitempty"`
+
+	// ValueFromSecret references a Kubernetes Secret key to use as the parameter value.
+	// This is the recommended way to set sensitive parameter values.
+	// If both value and valueFromSecret are set, valueFromSecret takes precedence.
+	// +optional
+	ValueFromSecret *SecretKeySelector `json:"valueFromSecret,omitempty"`
 
 	// Description is the parameter description.
 	// +optional
 	Description string `json:"description,omitempty"`
 
-	// Sensitive marks the parameter as sensitive.
+	// Sensitive marks the parameter as sensitive. When true, the parameter value
+	// will be encrypted at rest in NiFi and masked in the NiFi UI.
+	// For sensitive parameters, it is strongly recommended to use valueFromSecret
+	// instead of value to avoid storing secrets in the Kubernetes resource spec.
 	// +optional
 	Sensitive bool `json:"sensitive,omitempty"`
 }
