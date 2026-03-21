@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "POST /parameter-contexts - Request",
+  "description": "Creates a new parameter context",
+  "type": "object",
+  "required": ["revision", "component"],
+  "additionalProperties": false,
+  "properties": {
+    "revision": {
+      "type": "object",
+      "required": ["version"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "integer"
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the parameter context"
+        },
+        "description": {
+          "type": "string",
+          "description": "The description of the parameter context"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "parameter": {
+                "type": "object",
+                "required": ["name"],
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "The parameter name"
+                  },
+                  "value": {
+                    "type": ["string", "null"],
+                    "description": "The parameter value"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "The parameter description"
+                  },
+                  "sensitive": {
+                    "type": "boolean",
+                    "description": "Whether the parameter is sensitive"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "inheritedParameterContexts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "The ID of the inherited parameter context"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

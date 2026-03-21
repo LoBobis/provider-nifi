@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PUT /controller-services/{id}/run-status - Response",
+  "description": "Returns the controller service entity with updated run status",
+  "$ref": "../_definitions.json#/$defs/ControllerServiceEntity"
+}

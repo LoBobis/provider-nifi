@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GET /flow/registries/{registryId}/buckets/{bucketId}/flows/{flowId}/versions - Response",
+  "description": "Returns the available versions for a versioned flow",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "versionedFlowSnapshotMetadataSet": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "registryId": {
+            "type": ["string", "null"]
+          },
+          "versionedFlowSnapshotMetadata": {
+            "$ref": "../_definitions.json#/$defs/RegisteredFlowSnapshotMetadata"
+          }
+        }
+      }
+    }
+  }
+}

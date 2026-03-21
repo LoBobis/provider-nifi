@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PUT /processors/{id} - Response",
+  "description": "Returns the updated processor",
+  "$ref": "../_definitions.json#/$defs/ProcessorEntity"
+}

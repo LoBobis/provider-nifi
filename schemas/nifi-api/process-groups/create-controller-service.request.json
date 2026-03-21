@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "POST /process-groups/{id}/controller-services - Request",
+  "description": "Creates a new controller service within a process group",
+  "type": "object",
+  "required": ["revision", "component"],
+  "additionalProperties": false,
+  "properties": {
+    "revision": {
+      "type": "object",
+      "required": ["version"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "integer"
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "required": ["type", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "The fully qualified controller service type (Java class name)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the controller service"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "null"]
+          },
+          "description": "The configuration properties for the controller service"
+        },
+        "comments": {
+          "type": "string",
+          "description": "Comments for the controller service"
+        }
+      }
+    }
+  }
+}

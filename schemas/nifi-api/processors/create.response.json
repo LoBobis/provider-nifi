@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "POST /process-groups/{id}/processors - Response",
+  "description": "Returns the newly created processor",
+  "$ref": "../_definitions.json#/$defs/ProcessorEntity"
+}

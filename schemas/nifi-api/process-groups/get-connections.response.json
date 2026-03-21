@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GET /process-groups/{id}/connections - Response",
+  "description": "Returns all connections within a process group",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "connections": {
+      "type": "array",
+      "items": {
+        "$ref": "../_definitions.json#/$defs/ConnectionEntity"
+      }
+    }
+  }
+}

@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "DELETE.json",
+  "title": "NiFi API — All DELETE Endpoints",
+  "description": "Combined request/response schemas for every DELETE endpoint used by the provider. DELETE requests use query parameters for the revision version.",
+  "additionalProperties": false,
+  "properties": {
+    "DELETE /processors/{id}": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Deletes a processor by its ID. Requires the current revision version as a query parameter.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The processor ID." }
+              },
+              "required": ["id"]
+            },
+            "queryParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "version": { "type": "integer", "description": "The current revision version. Required for optimistic locking." },
+                "clientId": { "type": "string", "description": "Optional client ID for the revision." },
+                "disconnectedNodeAcknowledged": { "type": "boolean", "description": "Acknowledges that a disconnected node is being deleted from." }
+              },
+              "required": ["version"]
+            }
+          },
+          "required": ["pathParameters", "queryParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ProcessorEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "DELETE /process-groups/{id}": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Deletes a process group by its ID. The process group must be stopped and have empty queues.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The process group ID." }
+              },
+              "required": ["id"]
+            },
+            "queryParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "version": { "type": "integer", "description": "The current revision version. Required for optimistic locking." },
+                "clientId": { "type": "string", "description": "Optional client ID for the revision." },
+                "disconnectedNodeAcknowledged": { "type": "boolean", "description": "Acknowledges that a disconnected node is being deleted from." }
+              },
+              "required": ["version"]
+            }
+          },
+          "required": ["pathParameters", "queryParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ProcessGroupEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "DELETE /connections/{id}": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Deletes a connection by its ID. The connection queue must be empty.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The connection ID." }
+              },
+              "required": ["id"]
+            },
+            "queryParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "version": { "type": "integer", "description": "The current revision version. Required for optimistic locking." },
+                "clientId": { "type": "string", "description": "Optional client ID for the revision." },
+                "disconnectedNodeAcknowledged": { "type": "boolean", "description": "Acknowledges that a disconnected node is being deleted from." }
+              },
+              "required": ["version"]
+            }
+          },
+          "required": ["pathParameters", "queryParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ConnectionEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "DELETE /controller-services/{id}": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Deletes a controller service by its ID. The service must be disabled first.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The controller service ID." }
+              },
+              "required": ["id"]
+            },
+            "queryParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "version": { "type": "integer", "description": "The current revision version. Required for optimistic locking." },
+                "clientId": { "type": "string", "description": "Optional client ID for the revision." },
+                "disconnectedNodeAcknowledged": { "type": "boolean", "description": "Acknowledges that a disconnected node is being deleted from." }
+              },
+              "required": ["version"]
+            }
+          },
+          "required": ["pathParameters", "queryParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ControllerServiceEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "DELETE /parameter-contexts/{id}": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Deletes a parameter context by its ID. It must not be bound to any process groups.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The parameter context ID." }
+              },
+              "required": ["id"]
+            },
+            "queryParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "version": { "type": "integer", "description": "The current revision version. Required for optimistic locking." },
+                "clientId": { "type": "string", "description": "Optional client ID for the revision." },
+                "disconnectedNodeAcknowledged": { "type": "boolean", "description": "Acknowledges that a disconnected node is being deleted from." }
+              },
+              "required": ["version"]
+            }
+          },
+          "required": ["pathParameters", "queryParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ParameterContextEntity"
+        }
+      },
+      "required": ["request", "response"]
+    }
+  }
+}

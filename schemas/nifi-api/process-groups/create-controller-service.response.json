@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "POST /process-groups/{id}/controller-services - Response",
+  "description": "Returns the newly created controller service",
+  "$ref": "../_definitions.json#/$defs/ControllerServiceEntity"
+}

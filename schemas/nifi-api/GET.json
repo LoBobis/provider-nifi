@@ -1,0 +1,405 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "GET.json",
+  "title": "NiFi API — All GET Endpoints",
+  "description": "Combined request/response schemas for every GET endpoint used by the provider. GET requests have no body — only path parameters and optional query parameters are documented.",
+  "additionalProperties": false,
+  "properties": {
+    "GET /processors/{id}": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Retrieves a single processor by its ID.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The processor ID." }
+              },
+              "required": ["id"]
+            }
+          },
+          "required": ["pathParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ProcessorEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "GET /process-groups/{id}": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Retrieves a single process group by its ID.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The process group ID." }
+              },
+              "required": ["id"]
+            }
+          },
+          "required": ["pathParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ProcessGroupEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "GET /process-groups/{id}/process-groups": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Lists all child process groups within a parent process group.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The parent process group ID." }
+              },
+              "required": ["id"]
+            }
+          },
+          "required": ["pathParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ProcessGroupsEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "GET /process-groups/{id}/processors": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Lists all processors within a process group.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The process group ID." }
+              },
+              "required": ["id"]
+            },
+            "queryParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "includeDescendantGroups": { "type": "boolean", "description": "Whether to include processors from descendant groups." }
+              }
+            }
+          },
+          "required": ["pathParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ProcessorsEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "GET /process-groups/{id}/connections": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Lists all connections within a process group.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The process group ID." }
+              },
+              "required": ["id"]
+            }
+          },
+          "required": ["pathParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ConnectionsEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "GET /connections/{id}": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Retrieves a single connection by its ID.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The connection ID." }
+              },
+              "required": ["id"]
+            }
+          },
+          "required": ["pathParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ConnectionEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "GET /controller-services/{id}": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Retrieves a single controller service by its ID.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The controller service ID." }
+              },
+              "required": ["id"]
+            }
+          },
+          "required": ["pathParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ControllerServiceEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "GET /parameter-contexts/{id}": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Retrieves a single parameter context by its ID.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The parameter context ID." }
+              },
+              "required": ["id"]
+            },
+            "queryParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "includeInheritedParameters": { "type": "boolean", "description": "Whether to include inherited parameters." }
+              }
+            }
+          },
+          "required": ["pathParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ParameterContextEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "GET /flow/parameter-contexts": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Lists all parameter contexts.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {}
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ParameterContextsEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "GET /process-groups/{id}/version-control-information": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Retrieves the version control information for a process group.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The process group ID." }
+              },
+              "required": ["id"]
+            }
+          },
+          "required": ["pathParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/VersionControlInformationEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "GET /flow/registries/{registryId}/buckets/{bucketId}/flows/{flowId}/versions": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Lists all available versions for a flow in a registry bucket. For Git-based registries, returns commit-based snapshots.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "registryId": { "type": "string", "description": "The registry client ID." },
+                "bucketId": { "type": "string", "description": "The bucket ID." },
+                "flowId": { "type": "string", "description": "The flow ID." }
+              },
+              "required": ["registryId", "bucketId", "flowId"]
+            },
+            "queryParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "branch": { "type": "string", "description": "Git branch name (for Git-based registries)." }
+              }
+            }
+          },
+          "required": ["pathParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/VersionedFlowSnapshotMetadataSetEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "GET /flow/process-groups/{id}/status": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Retrieves the status of a process group including queue sizes, thread counts, etc.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The process group ID." }
+              },
+              "required": ["id"]
+            },
+            "queryParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "recursive": { "type": "boolean", "description": "Whether to include child/nested process group status." },
+                "nodewise": { "type": "boolean", "description": "Whether to include node-level status." },
+                "clusterNodeId": { "type": "string", "description": "The ID of a specific cluster node." }
+              }
+            }
+          },
+          "required": ["pathParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ProcessGroupStatusEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "GET /flow/process-groups/{id}/controller-services": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Lists all controller services within a process group.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The process group ID." }
+              },
+              "required": ["id"]
+            },
+            "queryParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "includeAncestorGroups": { "type": "boolean", "description": "Whether to include controller services from ancestor groups." },
+                "includeDescendantGroups": { "type": "boolean", "description": "Whether to include controller services from descendant groups." }
+              }
+            }
+          },
+          "required": ["pathParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ControllerServicesEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "GET /flow/bulletin-board": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Retrieves the bulletin board, optionally filtered by process group.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "queryParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "after": { "type": "string", "description": "Includes bulletins with an ID after this value." },
+                "groupId": { "type": "string", "description": "Filter by process group ID." },
+                "limit": { "type": "string", "description": "Maximum number of bulletins to return." },
+                "sourceId": { "type": "string", "description": "Filter by source component ID." },
+                "sourceName": { "type": "string", "description": "Filter by source component name (substring match)." }
+              }
+            }
+          }
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/BulletinBoardEntity"
+        }
+      },
+      "required": ["request", "response"]
+    }
+  }
+}

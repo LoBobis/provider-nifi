@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DELETE /process-groups/{id} - Response",
+  "description": "Returns the deleted process group",
+  "$ref": "../_definitions.json#/$defs/ProcessGroupEntity"
+}

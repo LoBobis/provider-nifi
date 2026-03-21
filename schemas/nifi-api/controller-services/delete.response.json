@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DELETE /controller-services/{id} - Response",
+  "description": "Returns the deleted controller service entity",
+  "$ref": "../_definitions.json#/$defs/ControllerServiceEntity"
+}

@@ -1,7 +1,7 @@
 apiVersion: nifi.crossplane.io/v1alpha1
 kind: ProcessGroup
 metadata:
-  name: my-data-pipeline
+  name: my-data-pipeline3
   namespace: crossplane-system
 spec:
   forProvider:

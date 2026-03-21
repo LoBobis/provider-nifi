@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GET /flow/process-groups/{id}/status - Response",
+  "description": "Returns the status of a process group",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "canRead": {
+      "type": ["boolean", "null"]
+    },
+    "processGroupStatus": {
+      "$ref": "../_definitions.json#/$defs/ProcessGroupStatusDto"
+    }
+  }
+}

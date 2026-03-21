@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "POST /process-groups/{id}/processors - Request",
+  "description": "Creates a new processor within a process group",
+  "type": "object",
+  "required": ["revision", "component"],
+  "additionalProperties": false,
+  "properties": {
+    "revision": {
+      "type": "object",
+      "required": ["version"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "integer"
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "required": ["type", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "The fully qualified processor type (Java class name)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the processor"
+        },
+        "position": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            }
+          }
+        },
+        "config": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "properties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": ["string", "null"]
+              }
+            },
+            "schedulingStrategy": {
+              "type": "string"
+            },
+            "schedulingPeriod": {
+              "type": "string"
+            },
+            "penaltyDuration": {
+              "type": "string"
+            },
+            "yieldDuration": {
+              "type": "string"
+            },
+            "bulletinLevel": {
+              "type": "string"
+            },
+            "autoTerminatedRelationships": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "concurrentlySchedulableTaskCount": {
+              "type": "integer"
+            },
+            "comments": {
+              "type": "string"
+            },
+            "executionNode": {
+              "type": "string"
+            },
+            "runDurationMillis": {
+              "type": "integer"
+            },
+            "lossTolerant": {
+              "type": "boolean"
+            },
+            "retryCount": {
+              "type": "integer"
+            },
+            "maxBackoffPeriod": {
+              "type": "string"
+            },
+            "backoffMechanism": {
+              "type": "string"
+            },
+            "retriedRelationships": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

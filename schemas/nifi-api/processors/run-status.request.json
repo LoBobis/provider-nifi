@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PUT /processors/{id}/run-status - Request",
+  "description": "Updates the run status of a processor",
+  "type": "object",
+  "required": ["revision", "state"],
+  "additionalProperties": false,
+  "properties": {
+    "disconnectedNodeAcknowledged": {
+      "type": "boolean"
+    },
+    "revision": {
+      "$ref": "../_definitions.json#/$defs/RevisionDto"
+    },
+    "state": {
+      "type": "string",
+      "description": "The desired run status (RUNNING, STOPPED, DISABLED)"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GET /flow/bulletin-board - Response",
+  "description": "Returns the bulletin board containing system bulletins",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "bulletinBoard": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bulletins": {
+          "type": "array",
+          "items": {
+            "$ref": "../_definitions.json#/$defs/BulletinEntity"
+          }
+        },
+        "generated": {
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}

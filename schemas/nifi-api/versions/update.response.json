@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "POST /versions/update-requests/process-groups/{id} - Response",
+  "description": "Returns the version control information entity after update",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "disconnectedNodeAcknowledged": {
+      "type": ["boolean", "null"]
+    },
+    "processGroupRevision": {
+      "$ref": "../_definitions.json#/$defs/RevisionDto"
+    },
+    "versionControlInformation": {
+      "$ref": "../_definitions.json#/$defs/VersionControlInformationDto"
+    }
+  }
+}

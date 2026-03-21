@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GET /flow/process-groups/{id}/controller-services - Response",
+  "description": "Lists controller services in a process group",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "controllerServices": {
+      "type": "array",
+      "items": {
+        "$ref": "../_definitions.json#/$defs/ControllerServiceEntity"
+      }
+    },
+    "currentTime": {
+      "type": ["string", "null"]
+    }
+  }
+}

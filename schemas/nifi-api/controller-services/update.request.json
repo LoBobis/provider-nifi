@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PUT /controller-services/{id} - Request",
+  "description": "Updates a controller service by ID",
+  "type": "object",
+  "required": ["id", "revision", "component"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "The controller service ID"
+    },
+    "revision": {
+      "type": "object",
+      "required": ["version"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "integer"
+        },
+        "clientId": {
+          "type": "string"
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The controller service ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the controller service"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "null"]
+          },
+          "description": "The controller service properties"
+        },
+        "comments": {
+          "type": "string",
+          "description": "Comments about the controller service"
+        },
+        "state": {
+          "type": "string",
+          "description": "The state of the controller service (ENABLED, DISABLED)"
+        }
+      }
+    }
+  }
+}

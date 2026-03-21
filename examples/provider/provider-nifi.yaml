@@ -1,0 +1,7 @@
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-nifi
+spec:
+  package: docker.io/eyalko123/provider-nifi:v0.3
+  packagePullPolicy: Always    # Always pull latest during development

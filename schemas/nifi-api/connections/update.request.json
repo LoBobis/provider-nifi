@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PUT /connections/{id} - Request",
+  "description": "Updates a connection by ID",
+  "type": "object",
+  "required": ["id", "revision", "component"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "The connection ID"
+    },
+    "revision": {
+      "type": "object",
+      "required": ["version"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "integer"
+        },
+        "clientId": {
+          "type": "string"
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The connection ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the connection"
+        },
+        "source": {
+          "$ref": "../_definitions.json#/$defs/ConnectableDto"
+        },
+        "destination": {
+          "$ref": "../_definitions.json#/$defs/ConnectableDto"
+        },
+        "selectedRelationships": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The selected relationships"
+        },
+        "backPressureObjectThreshold": {
+          "type": "integer",
+          "description": "The object count back pressure threshold"
+        },
+        "backPressureDataSizeThreshold": {
+          "type": "string",
+          "description": "The data size back pressure threshold"
+        },
+        "flowFileExpiration": {
+          "type": "string",
+          "description": "The flow file expiration period"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GET /flow/parameter-contexts - Response",
+  "description": "Lists all parameter contexts",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "currentTime": {
+      "type": ["string", "null"]
+    },
+    "parameterContexts": {
+      "type": "array",
+      "items": {
+        "$ref": "../_definitions.json#/$defs/ParameterContextEntity"
+      }
+    }
+  }
+}

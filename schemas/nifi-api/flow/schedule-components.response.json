@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PUT /flow/process-groups/{id} - Response",
+  "description": "Returns the schedule components entity",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": ["string", "null"],
+      "description": "The process group ID"
+    },
+    "state": {
+      "type": ["string", "null"],
+      "description": "The state (RUNNING, STOPPED)"
+    },
+    "disconnectedNodeAcknowledged": {
+      "type": ["boolean", "null"]
+    },
+    "components": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "../_definitions.json#/$defs/RevisionDto"
+      },
+      "description": "Map of component IDs to their revisions"
+    }
+  }
+}

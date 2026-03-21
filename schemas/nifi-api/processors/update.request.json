@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PUT /processors/{id} - Request",
+  "description": "Updates a processor by ID",
+  "type": "object",
+  "required": ["id", "revision", "component"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "The processor ID"
+    },
+    "revision": {
+      "type": "object",
+      "required": ["version"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "integer"
+        },
+        "clientId": {
+          "type": "string"
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The processor ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the processor"
+        },
+        "config": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "properties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": ["string", "null"]
+              }
+            },
+            "schedulingStrategy": {
+              "type": "string"
+            },
+            "schedulingPeriod": {
+              "type": "string"
+            },
+            "penaltyDuration": {
+              "type": "string"
+            },
+            "yieldDuration": {
+              "type": "string"
+            },
+            "bulletinLevel": {
+              "type": "string"
+            },
+            "autoTerminatedRelationships": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "concurrentlySchedulableTaskCount": {
+              "type": "integer"
+            },
+            "comments": {
+              "type": "string"
+            },
+            "executionNode": {
+              "type": "string"
+            },
+            "runDurationMillis": {
+              "type": "integer"
+            },
+            "lossTolerant": {
+              "type": "boolean"
+            },
+            "retryCount": {
+              "type": "integer"
+            },
+            "maxBackoffPeriod": {
+              "type": "string"
+            },
+            "backoffMechanism": {
+              "type": "string"
+            },
+            "retriedRelationships": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "state": {
+          "type": "string",
+          "description": "The processor state (RUNNING, STOPPED, DISABLED)"
+        },
+        "position": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    }
+  }
+}

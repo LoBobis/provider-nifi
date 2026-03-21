@@ -1,0 +1,2357 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "_definitions.json",
+  "$defs": {
+    "PositionDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": ["number", "null"]
+        },
+        "y": {
+          "type": ["number", "null"]
+        }
+      }
+    },
+    "RevisionDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "clientId": {
+          "type": ["string", "null"]
+        },
+        "lastModifier": {
+          "type": ["string", "null"]
+        },
+        "version": {
+          "type": ["integer", "null"]
+        }
+      }
+    },
+    "PermissionsDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "canRead": {
+          "type": ["boolean", "null"]
+        },
+        "canWrite": {
+          "type": ["boolean", "null"]
+        }
+      }
+    },
+    "BundleDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "group": {
+          "type": ["string", "null"]
+        },
+        "artifact": {
+          "type": ["string", "null"]
+        },
+        "version": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "PropertyDescriptorDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowableValues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AllowableValueEntity"
+          }
+        },
+        "defaultValue": {
+          "type": ["string", "null"]
+        },
+        "description": {
+          "type": ["string", "null"]
+        },
+        "displayName": {
+          "type": ["string", "null"]
+        },
+        "dynamic": {
+          "type": ["boolean", "null"]
+        },
+        "expressionLanguageScope": {
+          "type": ["string", "null"]
+        },
+        "identifiesControllerService": {
+          "type": ["string", "null"]
+        },
+        "identifiesControllerServiceBundle": {
+          "$ref": "#/$defs/BundleDto"
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "required": {
+          "type": ["boolean", "null"]
+        },
+        "resourceDefinition": {
+          "$ref": "#/$defs/PropertyResourceDefinitionDto"
+        },
+        "sensitive": {
+          "type": ["boolean", "null"]
+        },
+        "supportsEl": {
+          "type": ["boolean", "null"]
+        },
+        "typeProvidedByValue": {
+          "$ref": "#/$defs/PropertyDependencyDto"
+        }
+      }
+    },
+    "AllowableValueEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowableValue": {
+          "$ref": "#/$defs/AllowableValueDto"
+        },
+        "canRead": {
+          "type": ["boolean", "null"]
+        }
+      }
+    },
+    "AllowableValueDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": ["string", "null"]
+        },
+        "displayName": {
+          "type": ["string", "null"]
+        },
+        "value": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "RelationshipDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "autoTerminate": {
+          "type": ["boolean", "null"]
+        },
+        "description": {
+          "type": ["string", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "retry": {
+          "type": ["boolean", "null"]
+        }
+      }
+    },
+    "BulletinDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "type": ["string", "null"]
+        },
+        "groupId": {
+          "type": ["string", "null"]
+        },
+        "id": {
+          "type": ["integer", "null"]
+        },
+        "level": {
+          "type": ["string", "null"]
+        },
+        "message": {
+          "type": ["string", "null"]
+        },
+        "nodeAddress": {
+          "type": ["string", "null"]
+        },
+        "sourceId": {
+          "type": ["string", "null"]
+        },
+        "sourceName": {
+          "type": ["string", "null"]
+        },
+        "sourceType": {
+          "type": ["string", "null"]
+        },
+        "timestamp": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "BulletinEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bulletin": {
+          "$ref": "#/$defs/BulletinDto"
+        },
+        "canRead": {
+          "type": ["boolean", "null"]
+        },
+        "groupId": {
+          "type": ["string", "null"]
+        },
+        "id": {
+          "type": ["integer", "null"]
+        },
+        "nodeAddress": {
+          "type": ["string", "null"]
+        },
+        "sourceId": {
+          "type": ["string", "null"]
+        },
+        "timestamp": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ConnectableDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "comments": {
+          "type": ["string", "null"]
+        },
+        "exists": {
+          "type": ["boolean", "null"]
+        },
+        "groupId": {
+          "type": ["string", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "running": {
+          "type": ["boolean", "null"]
+        },
+        "transmitting": {
+          "type": ["boolean", "null"]
+        },
+        "type": {
+          "type": ["string", "null"]
+        },
+        "versionedComponentId": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ParameterContextReferenceEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "component": {
+          "$ref": "#/$defs/ParameterContextReferenceDto"
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "permissions": {
+          "$ref": "#/$defs/PermissionsDto"
+        }
+      }
+    },
+    "ParameterContextReferenceDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": ["string", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "VersionControlInformationDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "branch": {
+          "type": ["string", "null"]
+        },
+        "bucketId": {
+          "type": ["string", "null"]
+        },
+        "bucketName": {
+          "type": ["string", "null"]
+        },
+        "flowDescription": {
+          "type": ["string", "null"]
+        },
+        "flowId": {
+          "type": ["string", "null"]
+        },
+        "flowName": {
+          "type": ["string", "null"]
+        },
+        "groupId": {
+          "type": ["string", "null"]
+        },
+        "registryId": {
+          "type": ["string", "null"]
+        },
+        "registryName": {
+          "type": ["string", "null"]
+        },
+        "state": {
+          "type": ["string", "null"]
+        },
+        "stateExplanation": {
+          "type": ["string", "null"]
+        },
+        "storageLocation": {
+          "type": ["string", "null"]
+        },
+        "version": {
+          "oneOf": [
+            { "type": "integer" },
+            { "type": "number" },
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "ProcessorStatusDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "aggregateSnapshot": {
+          "$ref": "#/$defs/ProcessorStatusSnapshotDto"
+        },
+        "groupId": {
+          "type": ["string", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "runStatus": {
+          "type": ["string", "null"]
+        },
+        "statsLastRefreshed": {
+          "type": ["string", "null"]
+        },
+        "type": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ProcessorStatusSnapshotDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "activeThreadCount": {
+          "type": ["integer", "null"]
+        },
+        "bytesIn": {
+          "type": ["integer", "null"]
+        },
+        "bytesOut": {
+          "type": ["integer", "null"]
+        },
+        "bytesRead": {
+          "type": ["integer", "null"]
+        },
+        "bytesWritten": {
+          "type": ["integer", "null"]
+        },
+        "executionNode": {
+          "type": ["string", "null"]
+        },
+        "flowFilesIn": {
+          "type": ["integer", "null"]
+        },
+        "flowFilesOut": {
+          "type": ["integer", "null"]
+        },
+        "groupId": {
+          "type": ["string", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "input": {
+          "type": ["string", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "output": {
+          "type": ["string", "null"]
+        },
+        "processingNanos": {
+          "type": ["integer", "null"]
+        },
+        "read": {
+          "type": ["string", "null"]
+        },
+        "runStatus": {
+          "type": ["string", "null"]
+        },
+        "taskCount": {
+          "type": ["integer", "null"]
+        },
+        "tasks": {
+          "type": ["string", "null"]
+        },
+        "tasksDuration": {
+          "type": ["string", "null"]
+        },
+        "tasksDurationNanos": {
+          "type": ["integer", "null"]
+        },
+        "terminated": {
+          "type": ["boolean", "null"]
+        },
+        "type": {
+          "type": ["string", "null"]
+        },
+        "written": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ConnectionStatusDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "aggregateSnapshot": {
+          "$ref": "#/$defs/ConnectionStatusSnapshotDto"
+        },
+        "groupId": {
+          "type": ["string", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "sourceId": {
+          "type": ["string", "null"]
+        },
+        "sourceName": {
+          "type": ["string", "null"]
+        },
+        "statsLastRefreshed": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ConnectionStatusSnapshotDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bytesIn": {
+          "type": ["integer", "null"]
+        },
+        "bytesOut": {
+          "type": ["integer", "null"]
+        },
+        "bytesQueued": {
+          "type": ["integer", "null"]
+        },
+        "flowFileAvailability": {
+          "type": ["string", "null"]
+        },
+        "flowFilesIn": {
+          "type": ["integer", "null"]
+        },
+        "flowFilesOut": {
+          "type": ["integer", "null"]
+        },
+        "flowFilesQueued": {
+          "type": ["integer", "null"]
+        },
+        "groupId": {
+          "type": ["string", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "input": {
+          "type": ["string", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "output": {
+          "type": ["string", "null"]
+        },
+        "percentUseBytes": {
+          "type": ["integer", "null"]
+        },
+        "percentUseCount": {
+          "type": ["integer", "null"]
+        },
+        "queued": {
+          "type": ["string", "null"]
+        },
+        "queuedCount": {
+          "type": ["string", "null"]
+        },
+        "queuedSize": {
+          "type": ["string", "null"]
+        },
+        "sourceName": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ConnectionStatusSnapshotEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "canRead": {
+          "type": ["boolean", "null"]
+        },
+        "connectionStatusSnapshot": {
+          "$ref": "#/$defs/ConnectionStatusSnapshotDto"
+        },
+        "id": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ControllerServiceStatusDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "activeThreadCount": {
+          "type": ["integer", "null"]
+        },
+        "runStatus": {
+          "type": ["string", "null"]
+        },
+        "validationStatus": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ControllerServiceApiDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bundle": {
+          "$ref": "#/$defs/BundleDto"
+        },
+        "type": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ControllerServiceReferencingComponentEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bulletins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BulletinEntity"
+          }
+        },
+        "component": {
+          "$ref": "#/$defs/ControllerServiceReferencingComponentDto"
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "operatePermissions": {
+          "$ref": "#/$defs/PermissionsDto"
+        },
+        "permissions": {
+          "$ref": "#/$defs/PermissionsDto"
+        },
+        "revision": {
+          "$ref": "#/$defs/RevisionDto"
+        },
+        "uri": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ControllerServiceReferencingComponentDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "activeThreadCount": {
+          "type": ["integer", "null"]
+        },
+        "descriptors": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/PropertyDescriptorDto"
+          }
+        },
+        "groupId": {
+          "type": ["string", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "referenceCycle": {
+          "type": ["boolean", "null"]
+        },
+        "referencingComponents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ControllerServiceReferencingComponentEntity"
+          }
+        },
+        "state": {
+          "type": ["string", "null"]
+        },
+        "type": {
+          "type": ["string", "null"]
+        },
+        "validationErrors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ParameterProviderConfigurationEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "component": {
+          "$ref": "#/$defs/ParameterProviderConfigurationDto"
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "permissions": {
+          "$ref": "#/$defs/PermissionsDto"
+        },
+        "revision": {
+          "$ref": "#/$defs/RevisionDto"
+        }
+      }
+    },
+    "ParameterProviderConfigurationDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "parameterGroupName": {
+          "type": ["string", "null"]
+        },
+        "parameterProviderId": {
+          "type": ["string", "null"]
+        },
+        "parameterProviderName": {
+          "type": ["string", "null"]
+        },
+        "synchronized": {
+          "type": ["boolean", "null"]
+        }
+      }
+    },
+    "AffectedComponentEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bulletins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BulletinEntity"
+          }
+        },
+        "component": {
+          "$ref": "#/$defs/AffectedComponentDto"
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "permissions": {
+          "$ref": "#/$defs/PermissionsDto"
+        },
+        "processGroup": {
+          "$ref": "#/$defs/ProcessGroupNameDto"
+        },
+        "referenceType": {
+          "type": ["string", "null"]
+        },
+        "revision": {
+          "$ref": "#/$defs/RevisionDto"
+        }
+      }
+    },
+    "AffectedComponentDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "activeThreadCount": {
+          "type": ["integer", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "processGroupId": {
+          "type": ["string", "null"]
+        },
+        "referenceType": {
+          "type": ["string", "null"]
+        },
+        "state": {
+          "type": ["string", "null"]
+        },
+        "validationErrors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ProcessGroupNameDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": ["string", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "AssetReferenceDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": ["string", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "RegisteredFlowSnapshotMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "author": {
+          "type": ["string", "null"]
+        },
+        "branch": {
+          "type": ["string", "null"]
+        },
+        "bucketIdentifier": {
+          "type": ["string", "null"]
+        },
+        "comments": {
+          "type": ["string", "null"]
+        },
+        "flowIdentifier": {
+          "type": ["string", "null"]
+        },
+        "flowName": {
+          "type": ["string", "null"]
+        },
+        "registryIdentifier": {
+          "type": ["string", "null"]
+        },
+        "registryName": {
+          "type": ["string", "null"]
+        },
+        "timestamp": {
+          "type": ["integer", "null"]
+        },
+        "version": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "DropRequestDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "current": {
+          "type": ["string", "null"]
+        },
+        "currentCount": {
+          "type": ["integer", "null"]
+        },
+        "currentSize": {
+          "type": ["integer", "null"]
+        },
+        "dropRequestType": {
+          "type": ["string", "null"]
+        },
+        "failureReason": {
+          "type": ["string", "null"]
+        },
+        "finished": {
+          "type": ["boolean", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "lastUpdated": {
+          "type": ["string", "null"]
+        },
+        "original": {
+          "type": ["string", "null"]
+        },
+        "originalCount": {
+          "type": ["integer", "null"]
+        },
+        "originalSize": {
+          "type": ["integer", "null"]
+        },
+        "percentCompleted": {
+          "type": ["integer", "null"]
+        },
+        "state": {
+          "type": ["string", "null"]
+        },
+        "uri": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "PortStatusSnapshotEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "canRead": {
+          "type": ["boolean", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "portStatusSnapshot": {
+          "$ref": "#/$defs/PortStatusSnapshotDto"
+        }
+      }
+    },
+    "PortStatusSnapshotDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "activeThreadCount": {
+          "type": ["integer", "null"]
+        },
+        "bytesIn": {
+          "type": ["integer", "null"]
+        },
+        "bytesOut": {
+          "type": ["integer", "null"]
+        },
+        "flowFilesIn": {
+          "type": ["integer", "null"]
+        },
+        "flowFilesOut": {
+          "type": ["integer", "null"]
+        },
+        "groupId": {
+          "type": ["string", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "input": {
+          "type": ["string", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "output": {
+          "type": ["string", "null"]
+        },
+        "runStatus": {
+          "type": ["string", "null"]
+        },
+        "transmitting": {
+          "type": ["boolean", "null"]
+        }
+      }
+    },
+    "ProcessGroupStatusSnapshotEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "canRead": {
+          "type": ["boolean", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "processGroupStatusSnapshot": {
+          "$ref": "#/$defs/ProcessGroupStatusSnapshotDto"
+        }
+      }
+    },
+    "ProcessorStatusSnapshotEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "canRead": {
+          "type": ["boolean", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "processorStatusSnapshot": {
+          "$ref": "#/$defs/ProcessorStatusSnapshotDto"
+        }
+      }
+    },
+    "RemoteProcessGroupStatusSnapshotEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "canRead": {
+          "type": ["boolean", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "remoteProcessGroupStatusSnapshot": {
+          "$ref": "#/$defs/RemoteProcessGroupStatusSnapshotDto"
+        }
+      }
+    },
+    "RemoteProcessGroupStatusSnapshotDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "activeThreadCount": {
+          "type": ["integer", "null"]
+        },
+        "bytesReceived": {
+          "type": ["integer", "null"]
+        },
+        "bytesSent": {
+          "type": ["integer", "null"]
+        },
+        "flowFilesReceived": {
+          "type": ["integer", "null"]
+        },
+        "flowFilesSent": {
+          "type": ["integer", "null"]
+        },
+        "groupId": {
+          "type": ["string", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "received": {
+          "type": ["string", "null"]
+        },
+        "sent": {
+          "type": ["string", "null"]
+        },
+        "targetUri": {
+          "type": ["string", "null"]
+        },
+        "transmissionStatus": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "NodeProcessGroupStatusSnapshotDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "type": ["string", "null"]
+        },
+        "apiPort": {
+          "type": ["integer", "null"]
+        },
+        "nodeId": {
+          "type": ["string", "null"]
+        },
+        "statusSnapshot": {
+          "$ref": "#/$defs/ProcessGroupStatusSnapshotDto"
+        }
+      }
+    },
+    "ProcessGroupStatusSnapshotDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "activeThreadCount": {
+          "type": ["integer", "null"]
+        },
+        "bytesIn": {
+          "type": ["integer", "null"]
+        },
+        "bytesOut": {
+          "type": ["integer", "null"]
+        },
+        "bytesQueued": {
+          "type": ["integer", "null"]
+        },
+        "bytesRead": {
+          "type": ["integer", "null"]
+        },
+        "bytesReceived": {
+          "type": ["integer", "null"]
+        },
+        "bytesSent": {
+          "type": ["integer", "null"]
+        },
+        "bytesTransferred": {
+          "type": ["integer", "null"]
+        },
+        "bytesWritten": {
+          "type": ["integer", "null"]
+        },
+        "connectionStatusSnapshots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConnectionStatusSnapshotEntity"
+          }
+        },
+        "flowFilesIn": {
+          "type": ["integer", "null"]
+        },
+        "flowFilesOut": {
+          "type": ["integer", "null"]
+        },
+        "flowFilesQueued": {
+          "type": ["integer", "null"]
+        },
+        "flowFilesReceived": {
+          "type": ["integer", "null"]
+        },
+        "flowFilesSent": {
+          "type": ["integer", "null"]
+        },
+        "flowFilesTransferred": {
+          "type": ["integer", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "input": {
+          "type": ["string", "null"]
+        },
+        "inputPortStatusSnapshots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PortStatusSnapshotEntity"
+          }
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "output": {
+          "type": ["string", "null"]
+        },
+        "outputPortStatusSnapshots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PortStatusSnapshotEntity"
+          }
+        },
+        "processGroupStatusSnapshots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProcessGroupStatusSnapshotEntity"
+          }
+        },
+        "processingNanos": {
+          "type": ["integer", "null"]
+        },
+        "processorStatusSnapshots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProcessorStatusSnapshotEntity"
+          }
+        },
+        "queued": {
+          "type": ["string", "null"]
+        },
+        "queuedCount": {
+          "type": ["string", "null"]
+        },
+        "queuedSize": {
+          "type": ["string", "null"]
+        },
+        "read": {
+          "type": ["string", "null"]
+        },
+        "received": {
+          "type": ["string", "null"]
+        },
+        "remoteProcessGroupStatusSnapshots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RemoteProcessGroupStatusSnapshotEntity"
+          }
+        },
+        "sent": {
+          "type": ["string", "null"]
+        },
+        "statelessActiveThreadCount": {
+          "type": ["integer", "null"]
+        },
+        "terminatedThreadCount": {
+          "type": ["integer", "null"]
+        },
+        "transferred": {
+          "type": ["string", "null"]
+        },
+        "versionedFlowState": {
+          "type": ["string", "null"]
+        },
+        "written": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ProcessingPerformanceStatusDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cpuDuration": {
+          "type": ["integer", "null"]
+        },
+        "contentReadDuration": {
+          "type": ["integer", "null"]
+        },
+        "contentWriteDuration": {
+          "type": ["integer", "null"]
+        },
+        "garbageCollectionDuration": {
+          "type": ["integer", "null"]
+        },
+        "sessionCommitDuration": {
+          "type": ["integer", "null"]
+        }
+      }
+    },
+    "PropertyResourceDefinitionDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cardinality": {
+          "type": ["string", "null"]
+        },
+        "resourceTypes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "PropertyDependencyDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dependentValues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "propertyDisplayName": {
+          "type": ["string", "null"]
+        },
+        "propertyName": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ProcessGroupStatusDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "aggregateSnapshot": {
+          "$ref": "#/$defs/ProcessGroupStatusSnapshotDto"
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "nodeSnapshots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeProcessGroupStatusSnapshotDto"
+          }
+        },
+        "statsLastRefreshed": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+
+    "ProcessorConfigDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "annotationData": {
+          "type": ["string", "null"]
+        },
+        "autoTerminatedRelationships": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "backoffMechanism": {
+          "type": ["string", "null"]
+        },
+        "bulletinLevel": {
+          "type": ["string", "null"]
+        },
+        "comments": {
+          "type": ["string", "null"]
+        },
+        "concurrentlySchedulableTaskCount": {
+          "type": ["integer", "null"]
+        },
+        "customUiUrl": {
+          "type": ["string", "null"]
+        },
+        "defaultConcurrentTasks": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "defaultSchedulingPeriod": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "descriptors": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/PropertyDescriptorDto"
+          }
+        },
+        "executionNode": {
+          "type": ["string", "null"]
+        },
+        "lossTolerant": {
+          "type": ["boolean", "null"]
+        },
+        "maxBackoffPeriod": {
+          "type": ["string", "null"]
+        },
+        "penaltyDuration": {
+          "type": ["string", "null"]
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "null" }
+            ]
+          }
+        },
+        "retriedRelationships": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "retryCount": {
+          "type": ["integer", "null"]
+        },
+        "runDurationMillis": {
+          "type": ["integer", "null"]
+        },
+        "schedulingPeriod": {
+          "type": ["string", "null"]
+        },
+        "schedulingStrategy": {
+          "type": ["string", "null"]
+        },
+        "sensitiveDynamicPropertyNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "yieldDuration": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ProcessorDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bundle": {
+          "$ref": "#/$defs/BundleDto"
+        },
+        "config": {
+          "$ref": "#/$defs/ProcessorConfigDto"
+        },
+        "deprecated": {
+          "type": ["boolean", "null"]
+        },
+        "description": {
+          "type": ["string", "null"]
+        },
+        "executionNodeRestricted": {
+          "type": ["boolean", "null"]
+        },
+        "extensionMissing": {
+          "type": ["boolean", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "inputRequirement": {
+          "type": ["string", "null"]
+        },
+        "multipleVersionsAvailable": {
+          "type": ["boolean", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "parentGroupId": {
+          "type": ["string", "null"]
+        },
+        "persistsState": {
+          "type": ["boolean", "null"]
+        },
+        "position": {
+          "$ref": "#/$defs/PositionDto"
+        },
+        "relationships": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RelationshipDto"
+          }
+        },
+        "restricted": {
+          "type": ["boolean", "null"]
+        },
+        "state": {
+          "type": ["string", "null"]
+        },
+        "style": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "supportsBatching": {
+          "type": ["boolean", "null"]
+        },
+        "supportsParallelProcessing": {
+          "type": ["boolean", "null"]
+        },
+        "supportsSensitiveDynamicProperties": {
+          "type": ["boolean", "null"]
+        },
+        "type": {
+          "type": ["string", "null"]
+        },
+        "validationErrors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "validationStatus": {
+          "type": ["string", "null"]
+        },
+        "versionedComponentId": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ProcessorEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bulletins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BulletinEntity"
+          }
+        },
+        "component": {
+          "$ref": "#/$defs/ProcessorDto"
+        },
+        "disconnectedNodeAcknowledged": {
+          "type": ["boolean", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "inputRequirement": {
+          "type": ["string", "null"]
+        },
+        "operatePermissions": {
+          "$ref": "#/$defs/PermissionsDto"
+        },
+        "permissions": {
+          "$ref": "#/$defs/PermissionsDto"
+        },
+        "position": {
+          "$ref": "#/$defs/PositionDto"
+        },
+        "revision": {
+          "$ref": "#/$defs/RevisionDto"
+        },
+        "status": {
+          "$ref": "#/$defs/ProcessorStatusDto"
+        },
+        "uri": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ProcessGroupDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "activeRemotePortCount": {
+          "type": ["integer", "null"]
+        },
+        "comments": {
+          "type": ["string", "null"]
+        },
+        "contents": {
+          "type": "object",
+          "description": "FlowSnippetDto — recursive/deeply nested flow structure",
+          "additionalProperties": true
+        },
+        "defaultBackPressureDataSizeThreshold": {
+          "type": ["string", "null"]
+        },
+        "defaultBackPressureObjectThreshold": {
+          "type": ["integer", "null"]
+        },
+        "defaultFlowFileExpiration": {
+          "type": ["string", "null"]
+        },
+        "disabledCount": {
+          "type": ["integer", "null"]
+        },
+        "executionEngine": {
+          "type": ["string", "null"]
+        },
+        "flowfileConcurrency": {
+          "type": ["string", "null"]
+        },
+        "flowfileOutboundPolicy": {
+          "type": ["string", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "inactiveRemotePortCount": {
+          "type": ["integer", "null"]
+        },
+        "inputPortCount": {
+          "type": ["integer", "null"]
+        },
+        "invalidCount": {
+          "type": ["integer", "null"]
+        },
+        "localInputPortCount": {
+          "type": ["integer", "null"]
+        },
+        "localOutputPortCount": {
+          "type": ["integer", "null"]
+        },
+        "locallyModifiedAndStaleCount": {
+          "type": ["integer", "null"]
+        },
+        "locallyModifiedCount": {
+          "type": ["integer", "null"]
+        },
+        "logFileSuffix": {
+          "type": ["string", "null"]
+        },
+        "maxConcurrentTasks": {
+          "type": ["integer", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "outputPortCount": {
+          "type": ["integer", "null"]
+        },
+        "parameterContext": {
+          "$ref": "#/$defs/ParameterContextReferenceEntity"
+        },
+        "parentGroupId": {
+          "type": ["string", "null"]
+        },
+        "position": {
+          "$ref": "#/$defs/PositionDto"
+        },
+        "publicInputPortCount": {
+          "type": ["integer", "null"]
+        },
+        "publicOutputPortCount": {
+          "type": ["integer", "null"]
+        },
+        "runningCount": {
+          "type": ["integer", "null"]
+        },
+        "staleCount": {
+          "type": ["integer", "null"]
+        },
+        "statelessFlowTimeout": {
+          "type": ["string", "null"]
+        },
+        "statelessGroupScheduledState": {
+          "type": ["string", "null"]
+        },
+        "stoppedCount": {
+          "type": ["integer", "null"]
+        },
+        "syncFailureCount": {
+          "type": ["integer", "null"]
+        },
+        "upToDateCount": {
+          "type": ["integer", "null"]
+        },
+        "versionControlInformation": {
+          "$ref": "#/$defs/VersionControlInformationDto"
+        },
+        "versionedComponentId": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ProcessGroupEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "activeRemotePortCount": {
+          "type": ["integer", "null"]
+        },
+        "bulletins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BulletinEntity"
+          }
+        },
+        "component": {
+          "$ref": "#/$defs/ProcessGroupDto"
+        },
+        "disabledCount": {
+          "type": ["integer", "null"]
+        },
+        "disconnectedNodeAcknowledged": {
+          "type": ["boolean", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "inactiveRemotePortCount": {
+          "type": ["integer", "null"]
+        },
+        "inputPortCount": {
+          "type": ["integer", "null"]
+        },
+        "invalidCount": {
+          "type": ["integer", "null"]
+        },
+        "localInputPortCount": {
+          "type": ["integer", "null"]
+        },
+        "localOutputPortCount": {
+          "type": ["integer", "null"]
+        },
+        "locallyModifiedAndStaleCount": {
+          "type": ["integer", "null"]
+        },
+        "locallyModifiedCount": {
+          "type": ["integer", "null"]
+        },
+        "outputPortCount": {
+          "type": ["integer", "null"]
+        },
+        "parameterContext": {
+          "$ref": "#/$defs/ParameterContextReferenceEntity"
+        },
+        "permissions": {
+          "$ref": "#/$defs/PermissionsDto"
+        },
+        "position": {
+          "$ref": "#/$defs/PositionDto"
+        },
+        "processGroupUpdateStrategy": {
+          "type": ["string", "null"]
+        },
+        "publicInputPortCount": {
+          "type": ["integer", "null"]
+        },
+        "publicOutputPortCount": {
+          "type": ["integer", "null"]
+        },
+        "revision": {
+          "$ref": "#/$defs/RevisionDto"
+        },
+        "runningCount": {
+          "type": ["integer", "null"]
+        },
+        "staleCount": {
+          "type": ["integer", "null"]
+        },
+        "status": {
+          "$ref": "#/$defs/ProcessGroupStatusDto"
+        },
+        "stoppedCount": {
+          "type": ["integer", "null"]
+        },
+        "syncFailureCount": {
+          "type": ["integer", "null"]
+        },
+        "upToDateCount": {
+          "type": ["integer", "null"]
+        },
+        "uri": {
+          "type": ["string", "null"]
+        },
+        "versionedFlowSnapshot": {
+          "type": "object",
+          "description": "RegisteredFlowSnapshot — recursive/deeply nested flow structure",
+          "additionalProperties": true
+        },
+        "versionedFlowState": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ConnectionDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "availableRelationships": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "backPressureDataSizeThreshold": {
+          "type": ["string", "null"]
+        },
+        "backPressureObjectThreshold": {
+          "type": ["integer", "null"]
+        },
+        "bends": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PositionDto"
+          }
+        },
+        "destination": {
+          "$ref": "#/$defs/ConnectableDto"
+        },
+        "flowFileExpiration": {
+          "type": ["string", "null"]
+        },
+        "getzIndex": {
+          "type": ["integer", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "labelIndex": {
+          "type": ["integer", "null"]
+        },
+        "loadBalanceCompression": {
+          "type": ["string", "null"]
+        },
+        "loadBalancePartitionAttribute": {
+          "type": ["string", "null"]
+        },
+        "loadBalanceStatus": {
+          "type": ["string", "null"]
+        },
+        "loadBalanceStrategy": {
+          "type": ["string", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "parentGroupId": {
+          "type": ["string", "null"]
+        },
+        "position": {
+          "$ref": "#/$defs/PositionDto"
+        },
+        "prioritizers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "retriedRelationships": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "selectedRelationships": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source": {
+          "$ref": "#/$defs/ConnectableDto"
+        },
+        "versionedComponentId": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ConnectionEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bends": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PositionDto"
+          }
+        },
+        "bulletins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BulletinEntity"
+          }
+        },
+        "component": {
+          "$ref": "#/$defs/ConnectionDto"
+        },
+        "destinationGroupId": {
+          "type": ["string", "null"]
+        },
+        "destinationId": {
+          "type": ["string", "null"]
+        },
+        "destinationType": {
+          "type": ["string", "null"]
+        },
+        "disconnectedNodeAcknowledged": {
+          "type": ["boolean", "null"]
+        },
+        "getzIndex": {
+          "type": ["integer", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "labelIndex": {
+          "type": ["integer", "null"]
+        },
+        "permissions": {
+          "$ref": "#/$defs/PermissionsDto"
+        },
+        "position": {
+          "$ref": "#/$defs/PositionDto"
+        },
+        "revision": {
+          "$ref": "#/$defs/RevisionDto"
+        },
+        "sourceGroupId": {
+          "type": ["string", "null"]
+        },
+        "sourceId": {
+          "type": ["string", "null"]
+        },
+        "sourceType": {
+          "type": ["string", "null"]
+        },
+        "status": {
+          "$ref": "#/$defs/ConnectionStatusDto"
+        },
+        "uri": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ControllerServiceDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "annotationData": {
+          "type": ["string", "null"]
+        },
+        "bulletinLevel": {
+          "type": ["string", "null"]
+        },
+        "bundle": {
+          "$ref": "#/$defs/BundleDto"
+        },
+        "comments": {
+          "type": ["string", "null"]
+        },
+        "controllerServiceApis": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ControllerServiceApiDto"
+          }
+        },
+        "customUiUrl": {
+          "type": ["string", "null"]
+        },
+        "deprecated": {
+          "type": ["boolean", "null"]
+        },
+        "descriptors": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/PropertyDescriptorDto"
+          }
+        },
+        "extensionMissing": {
+          "type": ["boolean", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "multipleVersionsAvailable": {
+          "type": ["boolean", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "parentGroupId": {
+          "type": ["string", "null"]
+        },
+        "persistsState": {
+          "type": ["boolean", "null"]
+        },
+        "position": {
+          "$ref": "#/$defs/PositionDto"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "null" }
+            ]
+          }
+        },
+        "referencingComponents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ControllerServiceReferencingComponentEntity"
+          }
+        },
+        "restricted": {
+          "type": ["boolean", "null"]
+        },
+        "sensitiveDynamicPropertyNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "state": {
+          "type": ["string", "null"]
+        },
+        "supportsSensitiveDynamicProperties": {
+          "type": ["boolean", "null"]
+        },
+        "type": {
+          "type": ["string", "null"]
+        },
+        "validationErrors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "validationStatus": {
+          "type": ["string", "null"]
+        },
+        "versionedComponentId": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ControllerServiceEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bulletins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BulletinEntity"
+          }
+        },
+        "component": {
+          "$ref": "#/$defs/ControllerServiceDto"
+        },
+        "disconnectedNodeAcknowledged": {
+          "type": ["boolean", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "operatePermissions": {
+          "$ref": "#/$defs/PermissionsDto"
+        },
+        "parentGroupId": {
+          "type": ["string", "null"]
+        },
+        "permissions": {
+          "$ref": "#/$defs/PermissionsDto"
+        },
+        "position": {
+          "$ref": "#/$defs/PositionDto"
+        },
+        "revision": {
+          "$ref": "#/$defs/RevisionDto"
+        },
+        "status": {
+          "$ref": "#/$defs/ControllerServiceStatusDto"
+        },
+        "uri": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ParameterDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": ["string", "null"]
+        },
+        "inherited": {
+          "type": ["boolean", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "parameterContext": {
+          "$ref": "#/$defs/ParameterContextReferenceEntity"
+        },
+        "provided": {
+          "type": ["boolean", "null"]
+        },
+        "referencedAssets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AssetReferenceDto"
+          }
+        },
+        "referencingComponents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AffectedComponentEntity"
+          }
+        },
+        "sensitive": {
+          "type": ["boolean", "null"]
+        },
+        "value": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "valueRemoved": {
+          "type": ["boolean", "null"]
+        }
+      }
+    },
+    "ParameterEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "canWrite": {
+          "type": ["boolean", "null"]
+        },
+        "parameter": {
+          "$ref": "#/$defs/ParameterDto"
+        }
+      }
+    },
+    "ParameterContextDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "boundProcessGroups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProcessGroupEntity"
+          }
+        },
+        "description": {
+          "type": ["string", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "inheritedParameterContexts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ParameterContextReferenceEntity"
+          }
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "parameterProviderConfiguration": {
+          "$ref": "#/$defs/ParameterProviderConfigurationEntity"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ParameterEntity"
+          }
+        }
+      }
+    },
+    "ParameterContextEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bulletins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BulletinEntity"
+          }
+        },
+        "component": {
+          "$ref": "#/$defs/ParameterContextDto"
+        },
+        "disconnectedNodeAcknowledged": {
+          "type": ["boolean", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "permissions": {
+          "$ref": "#/$defs/PermissionsDto"
+        },
+        "position": {
+          "$ref": "#/$defs/PositionDto"
+        },
+        "revision": {
+          "$ref": "#/$defs/RevisionDto"
+        },
+        "uri": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "VersionControlInformationEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "disconnectedNodeAcknowledged": {
+          "type": ["boolean", "null"]
+        },
+        "processGroupRevision": {
+          "$ref": "#/$defs/RevisionDto"
+        },
+        "versionControlInformation": {
+          "$ref": "#/$defs/VersionControlInformationDto"
+        }
+      }
+    },
+    "VersionedFlowSnapshotMetadataEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "registryId": {
+          "type": ["string", "null"]
+        },
+        "versionedFlowSnapshotMetadata": {
+          "$ref": "#/$defs/RegisteredFlowSnapshotMetadata"
+        }
+      }
+    },
+    "ProcessGroupStatusEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "canRead": {
+          "type": ["boolean", "null"]
+        },
+        "processGroupStatus": {
+          "$ref": "#/$defs/ProcessGroupStatusDto"
+        }
+      }
+    },
+    "BulletinBoardDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bulletins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BulletinEntity"
+          }
+        },
+        "generated": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "BulletinBoardEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bulletinBoard": {
+          "$ref": "#/$defs/BulletinBoardDto"
+        }
+      }
+    },
+    "ScheduleComponentsEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "components": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/RevisionDto"
+          }
+        },
+        "disconnectedNodeAcknowledged": {
+          "type": ["boolean", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "state": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ActivateControllerServicesEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "components": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/RevisionDto"
+          }
+        },
+        "disconnectedNodeAcknowledged": {
+          "type": ["boolean", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "state": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ProcessorRunStatusEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "disconnectedNodeAcknowledged": {
+          "type": ["boolean", "null"]
+        },
+        "revision": {
+          "$ref": "#/$defs/RevisionDto"
+        },
+        "state": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ControllerServiceRunStatusEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "disconnectedNodeAcknowledged": {
+          "type": ["boolean", "null"]
+        },
+        "revision": {
+          "$ref": "#/$defs/RevisionDto"
+        },
+        "state": {
+          "type": ["string", "null"]
+        },
+        "uiOnly": {
+          "type": ["boolean", "null"]
+        }
+      }
+    },
+    "DropRequestEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dropRequest": {
+          "$ref": "#/$defs/DropRequestDto"
+        }
+      }
+    },
+    "ProcessorsEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "processors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProcessorEntity"
+          }
+        }
+      }
+    },
+    "ConnectionsEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "connections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConnectionEntity"
+          }
+        }
+      }
+    },
+    "ControllerServicesEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "controllerServices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ControllerServiceEntity"
+          }
+        },
+        "currentTime": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ParameterContextsEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "currentTime": {
+          "type": ["string", "null"]
+        },
+        "parameterContexts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ParameterContextEntity"
+          }
+        }
+      }
+    },
+    "VersionedFlowSnapshotMetadataSetEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "versionedFlowSnapshotMetadataSet": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/VersionedFlowSnapshotMetadataEntity"
+          }
+        }
+      }
+    },
+    "ProcessGroupsEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "processGroups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProcessGroupEntity"
+          }
+        }
+      }
+    },
+    "EmptyAllConnectionsRequestEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "current": {
+          "type": ["string", "null"]
+        },
+        "currentCount": {
+          "type": ["integer", "null"]
+        },
+        "currentSize": {
+          "type": ["integer", "null"]
+        },
+        "failureReason": {
+          "type": ["string", "null"]
+        },
+        "finished": {
+          "type": ["boolean", "null"]
+        },
+        "id": {
+          "type": ["string", "null"]
+        },
+        "lastUpdated": {
+          "type": ["string", "null"]
+        },
+        "original": {
+          "type": ["string", "null"]
+        },
+        "originalCount": {
+          "type": ["integer", "null"]
+        },
+        "originalSize": {
+          "type": ["integer", "null"]
+        },
+        "percentCompleted": {
+          "type": ["integer", "null"]
+        },
+        "state": {
+          "type": ["string", "null"]
+        },
+        "uri": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "AccessTokenResponse": {
+      "description": "Raw JWT token string returned by POST /access/token",
+      "type": "string"
+    }
+  }
+}

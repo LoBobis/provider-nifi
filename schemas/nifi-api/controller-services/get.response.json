@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GET /controller-services/{id} - Response",
+  "description": "Retrieves a controller service by ID",
+  "$ref": "../_definitions.json#/$defs/ControllerServiceEntity"
+}

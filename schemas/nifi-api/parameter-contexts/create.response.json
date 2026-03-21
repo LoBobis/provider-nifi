@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "POST /parameter-contexts - Response",
+  "description": "Returns the created parameter context entity",
+  "$ref": "../_definitions.json#/$defs/ParameterContextEntity"
+}

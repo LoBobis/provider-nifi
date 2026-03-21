@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PUT /processors/{id}/run-status - Response",
+  "description": "Returns the processor entity after updating run status",
+  "$ref": "../_definitions.json#/$defs/ProcessorEntity"
+}

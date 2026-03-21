@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "POST /versions/update-requests/process-groups/{id} - Request",
+  "description": "Initiates a version control update for a process group",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "disconnectedNodeAcknowledged": {
+      "type": "boolean"
+    },
+    "processGroupRevision": {
+      "$ref": "../_definitions.json#/$defs/RevisionDto"
+    },
+    "versionControlInformation": {
+      "$ref": "../_definitions.json#/$defs/VersionControlInformationDto"
+    }
+  }
+}

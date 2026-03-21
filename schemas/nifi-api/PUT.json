@@ -1,0 +1,270 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "PUT.json",
+  "title": "NiFi API — All PUT Endpoints",
+  "description": "Combined request/response schemas for every PUT endpoint used by the provider.",
+  "additionalProperties": false,
+  "properties": {
+    "PUT /processors/{id}": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Updates a processor's configuration, name, position, etc.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The processor ID." }
+              },
+              "required": ["id"]
+            },
+            "body": {
+              "$ref": "_definitions.json#/$defs/ProcessorEntity"
+            }
+          },
+          "required": ["pathParameters", "body"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ProcessorEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "PUT /processors/{id}/run-status": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Updates a processor's run status (RUNNING, STOPPED, DISABLED).",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The processor ID." }
+              },
+              "required": ["id"]
+            },
+            "body": {
+              "$ref": "_definitions.json#/$defs/ProcessorRunStatusEntity"
+            }
+          },
+          "required": ["pathParameters", "body"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ProcessorEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "PUT /process-groups/{id}": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Updates a process group's name, position, comments, parameter context, etc.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The process group ID." }
+              },
+              "required": ["id"]
+            },
+            "body": {
+              "$ref": "_definitions.json#/$defs/ProcessGroupEntity"
+            }
+          },
+          "required": ["pathParameters", "body"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ProcessGroupEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "PUT /connections/{id}": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Updates a connection's configuration (relationships, back pressure, etc.).",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The connection ID." }
+              },
+              "required": ["id"]
+            },
+            "body": {
+              "$ref": "_definitions.json#/$defs/ConnectionEntity"
+            }
+          },
+          "required": ["pathParameters", "body"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ConnectionEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "PUT /controller-services/{id}": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Updates a controller service's configuration, name, properties, etc.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The controller service ID." }
+              },
+              "required": ["id"]
+            },
+            "body": {
+              "$ref": "_definitions.json#/$defs/ControllerServiceEntity"
+            }
+          },
+          "required": ["pathParameters", "body"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ControllerServiceEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "PUT /controller-services/{id}/run-status": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Updates a controller service's run status (ENABLED, DISABLED).",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The controller service ID." }
+              },
+              "required": ["id"]
+            },
+            "body": {
+              "$ref": "_definitions.json#/$defs/ControllerServiceRunStatusEntity"
+            }
+          },
+          "required": ["pathParameters", "body"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ControllerServiceEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "PUT /parameter-contexts/{id}": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Updates a parameter context's parameters, name, description, etc.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The parameter context ID." }
+              },
+              "required": ["id"]
+            },
+            "body": {
+              "$ref": "_definitions.json#/$defs/ParameterContextEntity"
+            }
+          },
+          "required": ["pathParameters", "body"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ParameterContextEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "PUT /flow/process-groups/{id}/controller-services": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Activates or deactivates all controller services within a process group (bulk enable/disable).",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The process group ID." }
+              },
+              "required": ["id"]
+            },
+            "body": {
+              "$ref": "_definitions.json#/$defs/ActivateControllerServicesEntity"
+            }
+          },
+          "required": ["pathParameters", "body"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ActivateControllerServicesEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "PUT /flow/process-groups/{id}": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Schedules or stops all components within a process group (start/stop all processors).",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The process group ID." }
+              },
+              "required": ["id"]
+            },
+            "body": {
+              "$ref": "_definitions.json#/$defs/ScheduleComponentsEntity"
+            }
+          },
+          "required": ["pathParameters", "body"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ScheduleComponentsEntity"
+        }
+      },
+      "required": ["request", "response"]
+    }
+  }
+}

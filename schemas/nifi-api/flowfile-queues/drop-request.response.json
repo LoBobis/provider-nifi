@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "POST /flowfile-queues/{id}/drop-requests - Response",
+  "description": "Returns the drop request entity for a connection queue",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "dropRequest": {
+      "$ref": "../_definitions.json#/$defs/DropRequestDto"
+    }
+  }
+}

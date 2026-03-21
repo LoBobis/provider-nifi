@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "POST /process-groups/{parentId}/process-groups - Request",
+  "description": "Creates a new process group (empty or imported from registry)",
+  "type": "object",
+  "required": ["revision", "component"],
+  "additionalProperties": false,
+  "properties": {
+    "revision": {
+      "type": "object",
+      "required": ["version"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "integer"
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the process group"
+        },
+        "position": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            }
+          }
+        },
+        "comments": {
+          "type": "string",
+          "description": "Comments for the process group"
+        },
+        "versionControlInformation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "registryId": {
+              "type": "string",
+              "description": "The ID of the flow registry"
+            },
+            "bucketId": {
+              "type": "string",
+              "description": "The ID of the bucket"
+            },
+            "flowId": {
+              "type": "string",
+              "description": "The ID of the versioned flow"
+            },
+            "branch": {
+              "type": "string",
+              "description": "The branch name (for Git-based registries)"
+            },
+            "version": {
+              "oneOf": [
+                { "type": "integer" },
+                { "type": "string" },
+                { "type": "number" },
+                { "type": "null" }
+              ],
+              "description": "The version of the flow to import"
+            }
+          }
+        }
+      }
+    }
+  }
+}

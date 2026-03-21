@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "POST /process-groups/{id}/connections - Request",
+  "description": "Creates a new connection within a process group",
+  "type": "object",
+  "required": ["revision", "component"],
+  "additionalProperties": false,
+  "properties": {
+    "revision": {
+      "type": "object",
+      "required": ["version"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "integer"
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "required": ["source", "destination", "selectedRelationships"],
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "object",
+          "required": ["id", "groupId", "type"],
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The ID of the source component"
+            },
+            "groupId": {
+              "type": "string",
+              "description": "The ID of the group containing the source component"
+            },
+            "type": {
+              "type": "string",
+              "description": "The type of the source component (e.g., PROCESSOR, INPUT_PORT)"
+            }
+          }
+        },
+        "destination": {
+          "type": "object",
+          "required": ["id", "groupId", "type"],
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The ID of the destination component"
+            },
+            "groupId": {
+              "type": "string",
+              "description": "The ID of the group containing the destination component"
+            },
+            "type": {
+              "type": "string",
+              "description": "The type of the destination component (e.g., PROCESSOR, OUTPUT_PORT)"
+            }
+          }
+        },
+        "selectedRelationships": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The relationships to include in this connection"
+        },
+        "backPressureObjectThreshold": {
+          "type": "integer",
+          "description": "The maximum number of objects that can be queued before back pressure is applied"
+        },
+        "backPressureDataSizeThreshold": {
+          "type": "string",
+          "description": "The maximum data size before back pressure is applied (e.g., '1 GB')"
+        },
+        "flowFileExpiration": {
+          "type": "string",
+          "description": "The amount of time a FlowFile may exist before it expires (e.g., '0 sec')"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the connection"
+        }
+      }
+    }
+  }
+}

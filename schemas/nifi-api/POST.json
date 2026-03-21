@@ -1,0 +1,261 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "POST.json",
+  "title": "NiFi API — All POST Endpoints",
+  "description": "Combined request/response schemas for every POST endpoint used by the provider.",
+  "additionalProperties": false,
+  "properties": {
+    "POST /access/token": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Authenticates with username/password and returns a JWT access token. Request body is application/x-www-form-urlencoded.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "URL-encoded form body.",
+          "properties": {
+            "body": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "username": { "type": "string", "description": "The NiFi username." },
+                "password": { "type": "string", "description": "The NiFi password." }
+              },
+              "required": ["username", "password"]
+            }
+          },
+          "required": ["body"]
+        },
+        "response": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Returns a raw JWT token string (not JSON).",
+          "properties": {
+            "token": { "type": "string", "description": "The JWT access token." }
+          },
+          "required": ["token"]
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "POST /process-groups/{parentGroupId}/processors": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Creates a new processor within a process group.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "parentGroupId": { "type": "string", "description": "The parent process group ID." }
+              },
+              "required": ["parentGroupId"]
+            },
+            "body": {
+              "$ref": "_definitions.json#/$defs/ProcessorEntity"
+            }
+          },
+          "required": ["pathParameters", "body"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ProcessorEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "POST /process-groups/{parentGroupId}/process-groups": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Creates a new process group within a parent group. Also used to import a versioned flow from a registry by including versionedFlowSnapshot or version control info.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "parentGroupId": { "type": "string", "description": "The parent process group ID." }
+              },
+              "required": ["parentGroupId"]
+            },
+            "body": {
+              "$ref": "_definitions.json#/$defs/ProcessGroupEntity"
+            }
+          },
+          "required": ["pathParameters", "body"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ProcessGroupEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "POST /process-groups/{parentGroupId}/connections": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Creates a new connection between components within a process group.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "parentGroupId": { "type": "string", "description": "The parent process group ID." }
+              },
+              "required": ["parentGroupId"]
+            },
+            "body": {
+              "$ref": "_definitions.json#/$defs/ConnectionEntity"
+            }
+          },
+          "required": ["pathParameters", "body"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ConnectionEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "POST /process-groups/{parentGroupId}/controller-services": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Creates a new controller service within a process group.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "parentGroupId": { "type": "string", "description": "The parent process group ID." }
+              },
+              "required": ["parentGroupId"]
+            },
+            "body": {
+              "$ref": "_definitions.json#/$defs/ControllerServiceEntity"
+            }
+          },
+          "required": ["pathParameters", "body"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ControllerServiceEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "POST /process-groups/{id}/empty-all-connections-requests": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Creates a request to empty all connection queues within a process group.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The process group ID." }
+              },
+              "required": ["id"]
+            }
+          },
+          "required": ["pathParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/EmptyAllConnectionsRequestEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "POST /process-groups/{id}/version-control-information/update-requests": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Initiates a version control update request to change a process group to a different flow version from the registry.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "description": "The process group ID." }
+              },
+              "required": ["id"]
+            },
+            "body": {
+              "$ref": "_definitions.json#/$defs/VersionControlInformationEntity"
+            }
+          },
+          "required": ["pathParameters", "body"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/VersionControlInformationEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "POST /parameter-contexts": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Creates a new parameter context.",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "$ref": "_definitions.json#/$defs/ParameterContextEntity"
+            }
+          },
+          "required": ["body"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/ParameterContextEntity"
+        }
+      },
+      "required": ["request", "response"]
+    },
+    "POST /flowfile-queues/{connectionId}/drop-requests": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Creates a request to drop the contents of a connection queue (empty the queue).",
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pathParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "connectionId": { "type": "string", "description": "The connection ID whose queue to empty." }
+              },
+              "required": ["connectionId"]
+            }
+          },
+          "required": ["pathParameters"]
+        },
+        "response": {
+          "$ref": "_definitions.json#/$defs/DropRequestEntity"
+        }
+      },
+      "required": ["request", "response"]
+    }
+  }
+}

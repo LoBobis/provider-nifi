@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PUT /process-groups/{id} - Request",
+  "description": "Updates a process group",
+  "type": "object",
+  "required": ["id", "revision", "component"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "The ID of the process group"
+    },
+    "revision": {
+      "type": "object",
+      "required": ["version"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "integer"
+        },
+        "clientId": {
+          "type": "string"
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID of the process group"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the process group"
+        },
+        "parameterContext": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The ID of the parameter context to bind"
+            }
+          }
+        },
+        "position": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    }
+  }
+}
