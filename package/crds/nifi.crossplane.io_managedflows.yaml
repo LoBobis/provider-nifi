@@ -28,13 +28,13 @@ spec:
     - jsonPath: .status.atProvider.phase
       name: PHASE
       type: string
-    - jsonPath: .status.atProvider.currentVersion
-      name: VERSION
-      type: integer
-    - jsonPath: .status.atProvider.latestRegistryVersion
+    - jsonPath: .status.atProvider.lastImportedVersionRaw
+      name: DEPLOYED
+      type: string
+    - jsonPath: .status.atProvider.latestRegistryVersionRaw
       name: LATEST
       priority: 1
-      type: integer
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
@@ -323,9 +323,22 @@ spec:
                   latestRegistryVersion:
                     description: |-
                       LatestRegistryVersion is the latest version available in the registry.
-                      Only populated when autoUpdate is enabled.
+                      Only populated when autoUpdate is enabled. For Git registries, this is
+                      len(versions) which may not increase if NiFi caps the version history.
                     format: int32
                     type: integer
+                  latestRegistryVersionRaw:
+                    description: |-
+                      LatestRegistryVersionRaw is the raw version string of the latest version
+                      in the registry (commit SHA for Git registries, integer string for traditional).
+                      Used to detect new versions by comparing with lastImportedVersionRaw.
+                    type: string
+                  lastImportedVersionRaw:
+                    description: |-
+                      LastImportedVersionRaw is the raw version string (commit SHA) that was last
+                      successfully imported. Used for Git registry auto-update detection by comparing
+                      with latestRegistryVersionRaw.
+                    type: string
                   drainStartTime:
                     description: DrainStartTime is when queue draining began during
                       blue-green cutover.
@@ -385,6 +398,11 @@ spec:
                       without relying on VCI (which may return commit SHAs for Git registries).
                     format: int32
                     type: integer
+                  pendingFlowVersionRaw:
+                    description: |-
+                      PendingFlowVersionRaw is the raw version string (commit SHA) of the pending
+                      import during a blue-green rollout. Set to lastImportedVersionRaw after cutover.
+                    type: string
                   pendingProcessGroupId:
                     description: |-
                       PendingProcessGroupID is the NiFi-assigned ID of the new process group

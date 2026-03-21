@@ -36,21 +36,22 @@
 apiVersion: nifi.crossplane.io/v1alpha1
 kind: ManagedFlow
 metadata:
-  name: eyal-pipeline3
+  name: eyal-pipeline8
   namespace: crossplane-system
 spec:
   forProvider:
     parentGroupId: "root"
-    registryId: "07af5fa3-019d-1000-6512-56bc5b546486"
+    registryId: "10643b6f-019d-1000-f422-c1ef385ea7be"
     bucketId: "default"
     flowId: "eyal-flow"
     flowVersion: 0           # 0 = latest version
     autoUpdate: true          # automatically roll out new versions
     branch: "main"            # Git branch (optional, for Git-based registries)
     parameterContext:
-      name: "eyal-pipeline3"
+      name: "eyal-pipeline8"
       parameters:
         - name: input_topic
+          sensitive: true
           value: "events"
         # Sensitive parameter with value from a Kubernetes Secret:
         # - name: db_password

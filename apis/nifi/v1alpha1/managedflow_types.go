@@ -171,16 +171,33 @@ type ManagedFlowObservation struct {
 	CurrentVersion int32 `json:"currentVersion,omitempty"`
 
 	// LatestRegistryVersion is the latest version available in the registry.
-	// Only populated when autoUpdate is enabled. Useful for observing when
-	// a new version is available before it's deployed.
+	// Only populated when autoUpdate is enabled. For Git registries, this is
+	// len(versions) which may not increase if NiFi caps the version history.
 	// +optional
 	LatestRegistryVersion int32 `json:"latestRegistryVersion,omitempty"`
+
+	// LatestRegistryVersionRaw is the raw version string of the latest version
+	// in the registry (commit SHA for Git registries, integer string for traditional).
+	// Used to detect new versions by comparing with LastImportedVersionRaw.
+	// +optional
+	LatestRegistryVersionRaw string `json:"latestRegistryVersionRaw,omitempty"`
+
+	// LastImportedVersionRaw is the raw version string (commit SHA) that was last
+	// successfully imported. Used for Git registry auto-update: if this differs from
+	// LatestRegistryVersionRaw, a new version is available.
+	// +optional
+	LastImportedVersionRaw string `json:"lastImportedVersionRaw,omitempty"`
 
 	// PendingFlowVersion is the version that was imported for the pending PG
 	// during a blue-green rollout. Used to set CurrentVersion after cutover
 	// without relying on VCI (which may return commit SHAs for Git registries).
 	// +optional
 	PendingFlowVersion int32 `json:"pendingFlowVersion,omitempty"`
+
+	// PendingFlowVersionRaw is the raw version string (commit SHA) of the pending
+	// import during a blue-green rollout. Set to LastImportedVersionRaw after cutover.
+	// +optional
+	PendingFlowVersionRaw string `json:"pendingFlowVersionRaw,omitempty"`
 
 	// Phase is the current lifecycle phase of the ManagedFlow.
 	Phase ManagedFlowPhase `json:"phase,omitempty"`
@@ -250,8 +267,8 @@ type ManagedFlowStatus struct {
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
 // +kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.atProvider.phase"
-// +kubebuilder:printcolumn:name="VERSION",type="integer",JSONPath=".status.atProvider.currentVersion"
-// +kubebuilder:printcolumn:name="LATEST",type="integer",JSONPath=".status.atProvider.latestRegistryVersion",priority=1
+// +kubebuilder:printcolumn:name="DEPLOYED",type="string",JSONPath=".status.atProvider.lastImportedVersionRaw"
+// +kubebuilder:printcolumn:name="LATEST",type="string",JSONPath=".status.atProvider.latestRegistryVersionRaw",priority=1
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,categories={crossplane,managed,nifi}

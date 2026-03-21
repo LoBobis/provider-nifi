@@ -256,6 +256,15 @@ func (c *NiFiClient) DeleteProcessGroup(id string, version int64) error {
 	return nil
 }
 
+// GetChildProcessGroups lists all child process groups within a parent group.
+func (c *NiFiClient) GetChildProcessGroups(parentGroupID string) ([]nigoapi.ProcessGroupEntity, error) {
+	result, resp, _, err := c.client.ProcessGroupsApi.GetProcessGroups(c.ctx, parentGroupID)
+	if err != nil {
+		return nil, wrapNiFiError(err, resp, "get child process groups of %s", parentGroupID)
+	}
+	return result.ProcessGroups, nil
+}
+
 // ScheduleProcessGroup starts or stops all processors in a process group.
 func (c *NiFiClient) ScheduleProcessGroup(id string, state string) error {
 	entity := nigoapi.ScheduleComponentsEntity{
@@ -520,7 +529,22 @@ func (c *NiFiClient) GetLatestFlowVersionInfo(registryID, bucketID, flowID, bran
 		return 0, "", nil
 	}
 
-	// Try to find the highest parseable integer version (traditional registry)
+	// For Git-based registries (branch is set), always use len(versions) as the
+	// sequential version number. Git registry version strings are commit SHAs which
+	// are not reliably parseable as integers (some SHAs start with digits, causing
+	// partial/accidental matches that cap the version at wrong values).
+	if branch != "" {
+		latestNum := int32(len(versions))
+		var latestRaw string
+		// The last entry is typically the most recent version
+		last := versions[len(versions)-1]
+		if last.VersionedFlowSnapshotMetadata != nil {
+			latestRaw = last.VersionedFlowSnapshotMetadata.Version
+		}
+		return latestNum, latestRaw, nil
+	}
+
+	// Traditional NiFi Registry: parse integer version strings
 	var latestNum int32
 	var latestRaw string
 	for _, v := range versions {
@@ -533,12 +557,9 @@ func (c *NiFiClient) GetLatestFlowVersionInfo(registryID, bucketID, flowID, bran
 		}
 	}
 
-	// Fallback for Git-based registries: version strings are commit SHAs.
-	// Use the count of versions as the sequential version number, and the
-	// last entry's version string (commit SHA) as the raw version for import.
+	// Fallback: if no versions could be parsed, use the count
 	if latestNum == 0 {
 		latestNum = int32(len(versions))
-		// The last entry is typically the most recent version
 		last := versions[len(versions)-1]
 		if last.VersionedFlowSnapshotMetadata != nil {
 			latestRaw = last.VersionedFlowSnapshotMetadata.Version
