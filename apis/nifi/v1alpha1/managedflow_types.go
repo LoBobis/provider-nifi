@@ -30,6 +30,7 @@ const (
 	ManagedFlowPhaseStarting         ManagedFlowPhase = "Starting"
 	ManagedFlowPhaseHealthChecking   ManagedFlowPhase = "HealthChecking"
 	ManagedFlowPhaseDrainingOld      ManagedFlowPhase = "DrainingOld"
+	ManagedFlowPhaseUpgrading        ManagedFlowPhase = "Upgrading"
 	ManagedFlowPhaseActive           ManagedFlowPhase = "Active"
 	ManagedFlowPhaseRollingBack      ManagedFlowPhase = "RollingBack"
 	ManagedFlowPhaseFailed           ManagedFlowPhase = "Failed"

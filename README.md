@@ -137,20 +137,26 @@ When you update the flow (new version in the registry or changed parameters), th
 
 ### Lifecycle Phases
 
+**BlueGreen rollout:**
 ```
-Creating ──> Importing ──> EnablingServices ──> Starting ──> HealthCheck ──> Draining ──> Active
-                                                    |                          |
-                                                    └──── RollingBack <────────┘
+Creating ──> Importing ──> HealthChecking ──> Draining ──> Active
+                               |                 |
+                               └── RollingBack <──┘
+```
+
+**InPlace rollout:**
+```
+Creating ──> Upgrading ──> Active
 ```
 
 | Phase | Description |
 |-------|-------------|
 | `Creating` | Initial import of the flow from the registry |
 | `Importing` | Blue-green: importing the new version alongside the active one |
-| `EnablingServices` | Enabling controller services in the (new) process group |
-| `Starting` | Starting all processors |
-| `HealthCheck` | Monitoring for bulletin errors during the stabilization window |
+| `EnablingServices` | Enabling controller services (if they need extra time) |
+| `HealthChecking` | Monitoring for bulletin errors during the stabilization window |
 | `Draining` | Old PG's input processors stopped; waiting for queues to empty |
+| `Upgrading` | InPlace: stop → change version → enable → start (single cycle) |
 | `Active` | Flow is running and healthy |
 | `RollingBack` | Health check failed — reverting to the previous version |
 
@@ -182,17 +188,38 @@ parameters:
       namespace: crossplane-system  # optional, defaults to the resource's namespace
 ```
 
-### Rollout Configuration
+### Rollout Strategies
+
+ManagedFlow supports two rollout strategies:
+
+#### InPlace (default) — fast, brief downtime
 
 ```yaml
 rollout:
-  strategy: BlueGreen           # only strategy supported today
+  strategy: InPlace
+```
+
+The controller upgrades the existing process group in place: **stop → change version → update parameters → enable services → start**. Everything happens in a single reconcile cycle (~seconds). There is brief downtime while processors restart, but no duplicate process groups or waiting.
+
+Best for: development, non-critical flows, or when you need fast iteration.
+
+#### BlueGreen — zero-downtime, automatic rollback
+
+```yaml
+rollout:
+  strategy: BlueGreen
   healthCheck:
     stabilizationWindow: "30s"  # how long the new PG must run error-free
   drainTimeout: "60s"           # max time to wait for old PG queues to drain
 ```
 
-If the new process group produces bulletin errors during the stabilization window, the controller automatically **rolls back**: it deletes the new PG and keeps the old one running. The `failedFlowVersion` is recorded in the status to prevent retry loops.
+The controller creates a new process group alongside the old one, runs health checks, drains in-flight data, then cuts over. If the new version has errors, it automatically **rolls back** by deleting the new PG and keeping the old one running.
+
+Best for: production flows where data loss is unacceptable.
+
+The BlueGreen path is optimized to collapse multiple phases into fewer reconcile cycles:
+- Enable services + start processors + begin health check happen in one cycle
+- If queues are already empty after health check, cutover happens immediately
 
 ### Duplicate Prevention
 

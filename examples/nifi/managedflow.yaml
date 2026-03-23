@@ -1,42 +1,59 @@
+# =============================================================================
+# Example 1: InPlace strategy (default) — fast upgrades in seconds
+# =============================================================================
+# The InPlace strategy upgrades the flow in place: stop → change version →
+# update parameters → enable services → start. Everything happens in a single
+# reconcile cycle (~seconds). There is brief downtime while processors restart.
+#
+# Best for: development, non-critical flows, fast iteration.
+# =============================================================================
 #apiVersion: nifi.crossplane.io/v1alpha1
 #kind: ManagedFlow
 #metadata:
-#  name: eyal-check4
+#  name: my-pipeline-fast
 #  namespace: crossplane-system
 #spec:
 #  forProvider:
 #    parentGroupId: "root"
-#    registryId: "f7d0fd58-019c-1000-2c34-23b2c308a048"
-#    bucketId: "5bd7ee9c-c6fa-4a7c-9606-ceeaebcd721f"
-#    flowId: "b1ef6be1-fb5c-4988-87e8-a3cfcc504830"
-#    flowVersion: 1
+#    registryId: "your-registry-id"
+#    bucketId: "your-bucket-id"
+#    flowId: "your-flow-id"
+#    flowVersion: 0            # 0 = latest version
+#    autoUpdate: true          # automatically upgrade when new versions appear
+#    branch: "main"            # Git branch (for Git-based registries)
 #    parameterContext:
-#      name: "eyal-check4"
+#      name: "my-pipeline-fast"
 #      parameters:
-#        - name: message
-#          value: "hi"
+#        - name: input_topic
+#          value: "events"
+#        - name: db_password
+#          sensitive: true
+#          valueFromSecret:
+#            name: nifi-secrets
+#            key: db-password
 #    desiredState: RUNNING
 #    position:
-#      "x": 400
-#      "y": 200
+#      x: 0
+#      y: 0
 #    rollout:
-#      strategy: BlueGreen
-#      healthCheck:
-#        stabilizationWindow: "30s"
-#      drainTimeout: "60s"
+#      strategy: InPlace       # fast: stop → upgrade → start (~seconds)
 #  providerConfigRef:
 #    name: default
-#    kind: ProviderConfig
 
-#---
-# Auto-update example: automatically deploy new versions pushed to the registry.
-# Works with both traditional NiFi Registry and Git-based registries (NiFi 2.x).
-# When autoUpdate is enabled with flowVersion: 0, the controller polls for the latest
-# version and triggers a blue-green rollout whenever a new version appears.
+---
+# =============================================================================
+# Example 2: BlueGreen strategy — zero-downtime with automatic rollback
+# =============================================================================
+# The BlueGreen strategy creates a new process group alongside the old one,
+# runs health checks, drains in-flight data from the old PG, then cuts over.
+# If the new version has errors, it automatically rolls back.
+#
+# Best for: production flows where data loss is unacceptable.
+# =============================================================================
 apiVersion: nifi.crossplane.io/v1alpha1
 kind: ManagedFlow
 metadata:
-  name: eyal-pipeline8
+  name: my-pipeline-safe
   namespace: crossplane-system
 spec:
   forProvider:
@@ -44,31 +61,28 @@ spec:
     registryId: "10643b6f-019d-1000-f422-c1ef385ea7be"
     bucketId: "default"
     flowId: "eyal-flow"
-    flowVersion: 0           # 0 = latest version
-    autoUpdate: true          # automatically roll out new versions
-    branch: "main"            # Git branch (optional, for Git-based registries)
+    flowVersion: 0            # 0 = latest version
+    autoUpdate: true          # automatically upgrade when new versions appear
+    branch: "main"            # Git branch (for Git-based registries)
     parameterContext:
-      name: "eyal-pipeline8"
+      name: "my-pipeline-safe"
       parameters:
-        - name: input_topic
-          sensitive: true
-          value: "events"
-        # Sensitive parameter with value from a Kubernetes Secret:
-        # - name: db_password
-        #   sensitive: true
-        #   valueFromSecret:
-        #     name: nifi-secrets        # Secret name
-        #     key: db-password           # Key within the Secret
-        #     # namespace: crossplane-system  # Optional, defaults to resource namespace
+        - name: input_topic2
+          value: "events6"
+#        - name: db_password
+#          sensitive: true
+#          valueFromSecret:
+#            name: nifi-secrets
+#            key: db-password
     desiredState: RUNNING
     position:
-      "x": 400
-      "y": 200
+      x: 400
+      "y": 0
     rollout:
-      strategy: BlueGreen
+      strategy: BlueGreen     # safe: health check + drain (~2-3 min)
       healthCheck:
-        stabilizationWindow: "30s"
-      drainTimeout: "60s"
+        stabilizationWindow: "10s"  # new PG must run error-free for this long
+      drainTimeout: "10s"           # max wait for old PG queues to empty
   providerConfigRef:
     name: default
     kind: ProviderConfig

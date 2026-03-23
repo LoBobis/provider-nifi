@@ -12,6 +12,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/feature"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/ratelimiter"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
@@ -50,12 +51,15 @@ func SetupGated(mgr ctrl.Manager, o controller.Options) error {
 func Setup(mgr ctrl.Manager, o controller.Options) error {
 	name := managed.ControllerName(v1alpha1.ManagedFlowGroupKind)
 
+	l := o.Logger.WithValues("controller", name)
+
 	opts := []managed.ReconcilerOption{
 		managed.WithTypedExternalConnector[*v1alpha1.ManagedFlow](&connector{
 			kube:  mgr.GetClient(),
 			usage: resource.NewProviderConfigUsageTracker(mgr.GetClient(), &apisv1alpha1.ProviderConfigUsage{}),
+			log:   l,
 		}),
-		managed.WithLogger(o.Logger.WithValues("controller", name)),
+		managed.WithLogger(l),
 		managed.WithPollInterval(o.PollInterval),
 		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))),
 	}
@@ -94,40 +98,44 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 type connector struct {
 	kube  client.Client
 	usage *resource.ProviderConfigUsageTracker
+	log   logging.Logger
 }
 
 func (c *connector) Connect(ctx context.Context, cr *v1alpha1.ManagedFlow) (managed.TypedExternalClient[*v1alpha1.ManagedFlow], error) {
+	log := c.log.WithValues("managedflow", cr.Name, "namespace", cr.Namespace)
 	nifi, err := nificlient.GetNiFiClient(ctx, c.kube, c.usage, cr)
 	if err != nil {
 		return nil, err
 	}
-	return &external{nifi: nifi, kube: c.kube}, nil
+	return &external{nifi: nifi, kube: c.kube, log: log}, nil
 }
 
 type external struct {
 	nifi *nificlient.NiFiClient
 	kube client.Client
+	log  logging.Logger
 }
 
 func (e *external) Observe(ctx context.Context, cr *v1alpha1.ManagedFlow) (managed.ExternalObservation, error) {
+	log := e.log.WithValues("phase", cr.Status.AtProvider.Phase)
 	externalName := meta.GetExternalName(cr)
 	if externalName == "" {
+		log.Debug("No external name set, resource does not exist yet")
 		return managed.ExternalObservation{ResourceExists: false}, nil
 	}
+
+	log.Debug("Observing", "externalName", externalName, "activePG", cr.Status.AtProvider.ActiveProcessGroupID, "pendingPG", cr.Status.AtProvider.PendingProcessGroupID)
 
 	pg, err := e.nifi.GetProcessGroup(externalName)
 	if err != nil {
 		if nificlient.IsNotFound(err) {
-			// RECOVERY: The external name PG was not found (deleted during blue-green cutover).
-			// Check if ActiveProcessGroupID from status points to a valid PG — this handles the case
-			// where checkDrain deleted the old PG and called meta.SetExternalName(newPGID), but
-			// Crossplane failed to persist the annotation change. Without this fallback, Observe
-			// returns ResourceExists=false → Create runs → creates a DUPLICATE PG.
+			log.Info("External name PG not found, attempting recovery", "staleExternalName", externalName)
 			pg, err = e.recoverActivePG(cr, externalName)
 			if err != nil || pg == nil {
+				log.Info("Recovery failed, resource does not exist")
 				return managed.ExternalObservation{ResourceExists: false}, nil
 			}
-			// Fall through to normal Observe logic with the recovered PG
+			log.Info("Recovered active PG from status/NiFi search", "recoveredPG", pg.Id)
 		} else {
 			return managed.ExternalObservation{}, errors.Wrap(err, "cannot get process group for managed flow")
 		}
@@ -238,6 +246,9 @@ func (e *external) Observe(ctx context.Context, cr *v1alpha1.ManagedFlow) (manag
 	}
 
 	upToDate := isManagedFlowUpToDate(cr, pg)
+	if !upToDate {
+		log.Info("Resource not up to date, Update will be called", "phase", phase, "latestRaw", cr.Status.AtProvider.LatestRegistryVersionRaw, "importedRaw", cr.Status.AtProvider.LastImportedVersionRaw)
+	}
 
 	cr.Status.SetConditions(xpv1.Available())
 	return managed.ExternalObservation{
@@ -248,6 +259,7 @@ func (e *external) Observe(ctx context.Context, cr *v1alpha1.ManagedFlow) (manag
 }
 
 func (e *external) Create(ctx context.Context, cr *v1alpha1.ManagedFlow) (managed.ExternalCreation, error) {
+	e.log.Info("Creating ManagedFlow")
 	cr.Status.SetConditions(xpv1.Creating())
 
 	p := cr.Spec.ForProvider
@@ -260,8 +272,9 @@ func (e *external) Create(ctx context.Context, cr *v1alpha1.ManagedFlow) (manage
 		if childErr == nil {
 			for _, child := range childPGs {
 				if child.Component != nil && (child.Component.Name == cr.Name ||
-					strings.HasPrefix(child.Component.Name, cr.Name+"-v")) {
+					child.Component.Name == cr.Name+"-pending") {
 					// Found existing PG — adopt it instead of creating a duplicate
+					e.log.Info("Duplicate guard: adopting existing PG instead of creating new one", "existingPG", child.Id, "name", child.Component.Name)
 					meta.SetExternalName(cr, child.Id)
 					cr.Status.AtProvider.ActiveProcessGroupID = child.Id
 					if child.Revision != nil && child.Revision.Version != nil {
@@ -359,6 +372,7 @@ func (e *external) Create(ctx context.Context, cr *v1alpha1.ManagedFlow) (manage
 func (e *external) Update(ctx context.Context, cr *v1alpha1.ManagedFlow) (managed.ExternalUpdate, error) {
 	phase := cr.Status.AtProvider.Phase
 	strategy := getStrategy(cr)
+	e.log.Debug("Update called", "phase", phase, "strategy", strategy, "generation", cr.Generation, "lastAppliedGen", cr.Status.AtProvider.LastAppliedGeneration)
 
 	switch phase {
 	case "":
@@ -381,16 +395,23 @@ func (e *external) Update(ctx context.Context, cr *v1alpha1.ManagedFlow) (manage
 		return e.doInPlaceUpdate(ctx, cr)
 
 	case v1alpha1.ManagedFlowPhaseImporting:
-		// Blue-green: new PG was just imported, enable services
+		// Blue-green: new PG was just imported — enable services + start + begin health check
+		// (collapsed into a single reconcile cycle to reduce rollout time)
 		return e.enableServicesOnTarget(ctx, cr)
 
 	case v1alpha1.ManagedFlowPhaseEnablingServices:
-		// Check if services are enabled, then start PG
+		// Services still enabling from previous cycle — check and start + begin health check
 		return e.checkServicesAndStart(ctx, cr)
 
 	case v1alpha1.ManagedFlowPhaseStarting:
-		// PG was started, begin health check
-		return e.beginHealthCheck(ctx, cr)
+		// Legacy: kept for backward compat if a rollout was mid-flight during upgrade.
+		// New code skips this phase, going directly from Enable → HealthChecking.
+		return e.checkServicesAndStart(ctx, cr)
+
+	case v1alpha1.ManagedFlowPhaseUpgrading:
+		// InPlace upgrade is in progress (shouldn't normally reach here since
+		// doInPlaceUpdate completes in one cycle, but handle gracefully)
+		return e.doInPlaceUpdate(ctx, cr)
 
 	case v1alpha1.ManagedFlowPhaseHealthChecking:
 		// Check bulletins for errors
@@ -418,6 +439,7 @@ func (e *external) Update(ctx context.Context, cr *v1alpha1.ManagedFlow) (manage
 }
 
 func (e *external) Delete(ctx context.Context, cr *v1alpha1.ManagedFlow) (managed.ExternalDelete, error) {
+	e.log.Info("Deleting ManagedFlow", "activePG", cr.Status.AtProvider.ActiveProcessGroupID, "pendingPG", cr.Status.AtProvider.PendingProcessGroupID)
 	cr.Status.SetConditions(xpv1.Deleting())
 
 	// Delete active PG
@@ -458,6 +480,7 @@ func (e *external) Disconnect(ctx context.Context) error {
 // --- State machine steps ---
 
 func (e *external) startBlueGreenRollout(ctx context.Context, cr *v1alpha1.ManagedFlow) (managed.ExternalUpdate, error) {
+	e.log.Info("Starting blue-green rollout", "currentVersion", cr.Status.AtProvider.CurrentVersion, "lastImportedRaw", cr.Status.AtProvider.LastImportedVersionRaw)
 	p := cr.Spec.ForProvider
 
 	// GUARD: If a rollout is already in progress (PendingProcessGroupID is set),
@@ -468,7 +491,7 @@ func (e *external) startBlueGreenRollout(ctx context.Context, cr *v1alpha1.Manag
 		// Verify the pending PG still exists in NiFi
 		_, err := e.nifi.GetProcessGroup(cr.Status.AtProvider.PendingProcessGroupID)
 		if err == nil {
-			// Pending PG exists — resume the state machine instead of creating a duplicate
+			e.log.Info("Pending PG already exists, resuming rollout instead of creating duplicate", "pendingPG", cr.Status.AtProvider.PendingProcessGroupID)
 			cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseImporting
 			cr.Status.AtProvider.Message = fmt.Sprintf("Resuming in-progress rollout with pending PG %s", cr.Status.AtProvider.PendingProcessGroupID)
 			return managed.ExternalUpdate{}, nil
@@ -501,40 +524,37 @@ func (e *external) startBlueGreenRollout(ctx context.Context, cr *v1alpha1.Manag
 			importVersion = latestNum
 		}
 	}
+	e.log.Info("Resolved import version", "importVersion", importVersion, "versionRaw", versionRaw, "currentVersion", cr.Status.AtProvider.CurrentVersion, "lastImportedRaw", cr.Status.AtProvider.LastImportedVersionRaw)
 
 	// SAFEGUARD: Don't create a duplicate PG if we're already on the target version
-	// and parameters haven't changed. This prevents spurious rollouts triggered by
-	// non-rollout spec changes (position, desiredState) or transient state mismatches.
-	// For Git registries, also check that the commit SHA hasn't changed — the integer
-	// version can stay the same (NiFi caps version history) while the actual flow changed.
+	// and parameters haven't changed.
 	sameRawVersion := versionRaw != "" && versionRaw == cr.Status.AtProvider.LastImportedVersionRaw
 	sameIntVersion := importVersion > 0 && importVersion == cr.Status.AtProvider.CurrentVersion && versionRaw == ""
 	if sameRawVersion || sameIntVersion {
 		currentHash := computeParameterHash(p.ParameterContext)
 		if cr.Status.AtProvider.LastAppliedParameterHash == "" || currentHash == cr.Status.AtProvider.LastAppliedParameterHash {
-			// Same version AND same parameters — nothing to roll out
+			e.log.Info("Same version and parameters, skipping rollout", "version", importVersion, "versionRaw", versionRaw)
 			cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseActive
 			cr.Status.AtProvider.LastAppliedGeneration = cr.Generation
 			cr.Status.AtProvider.LastAppliedParameterHash = currentHash
 			cr.Status.AtProvider.Message = fmt.Sprintf("Already on version %d with matching parameters, skipping rollout", importVersion)
 			return managed.ExternalUpdate{}, nil
 		}
+		e.log.Info("Same version but parameters changed, proceeding with rollout")
 	}
 
 	// NIFI-SIDE DUPLICATE GUARD: Before importing, check if there are already child PGs in the
-	// parent group that belong to this ManagedFlow (by name prefix). This catches duplicates caused
-	// by status write failures where PendingProcessGroupID was never persisted.
+	// parent group that belong to this ManagedFlow.
 	activePGID := cr.Status.AtProvider.ActiveProcessGroupID
 	childPGs, childErr := e.nifi.GetChildProcessGroups(p.ParentGroupID)
 	if childErr == nil {
 		for _, child := range childPGs {
 			if child.Id == activePGID {
-				continue // Skip the currently active PG
+				continue
 			}
-			// Check if this child PG matches our naming pattern (name or name-vN)
 			if child.Component != nil && (child.Component.Name == cr.Name ||
-				strings.HasPrefix(child.Component.Name, cr.Name+"-v")) {
-				// Found an orphaned PG from a previous failed rollout attempt — resume it
+				child.Component.Name == cr.Name+"-pending") {
+				e.log.Info("NiFi-side duplicate guard: found orphaned PG, resuming", "orphanedPG", child.Id, "name", child.Component.Name)
 				cr.Status.AtProvider.PendingProcessGroupID = child.Id
 				cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseImporting
 				cr.Status.AtProvider.Message = fmt.Sprintf("Found existing pending PG %s (NiFi-side check), resuming rollout", child.Id)
@@ -544,12 +564,14 @@ func (e *external) startBlueGreenRollout(ctx context.Context, cr *v1alpha1.Manag
 	}
 
 	// Import new version as a separate PG
+	e.log.Info("Importing new PG for blue-green rollout", "version", importVersion, "versionRaw", versionRaw)
 	newPG, err := e.nifi.ImportFlowFromRegistry(
 		p.ParentGroupID, p.RegistryID, p.BucketID, p.FlowID, importVersion, p.Branch, versionRaw, position,
 	)
 	if err != nil {
 		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot import new flow version for blue-green rollout")
 	}
+	e.log.Info("Imported new PG", "newPGID", newPG.Id)
 
 	cr.Status.AtProvider.PendingProcessGroupID = newPG.Id
 	cr.Status.AtProvider.PendingFlowVersion = importVersion
@@ -564,7 +586,7 @@ func (e *external) startBlueGreenRollout(ctx context.Context, cr *v1alpha1.Manag
 	if newPG.Revision != nil && newPG.Revision.Version != nil {
 		newPGVersion = *newPG.Revision.Version
 	}
-	pendingName := fmt.Sprintf("%s-v%d", cr.Name, importVersion)
+	pendingName := fmt.Sprintf("%s-pending", cr.Name)
 	if err := e.renamePG(newPG.Id, pendingName, newPGVersion); err != nil {
 		cr.Status.AtProvider.Message = fmt.Sprintf("Blue-green rollout: imported new PG %s (rename failed: %v)", newPG.Id, err)
 	}
@@ -603,13 +625,47 @@ func (e *external) startBlueGreenRollout(ctx context.Context, cr *v1alpha1.Manag
 
 func (e *external) enableServicesOnTarget(ctx context.Context, cr *v1alpha1.ManagedFlow) (managed.ExternalUpdate, error) {
 	targetID := e.getTargetPGID(cr)
+	e.log.Debug("Enabling services and starting PG", "targetPG", targetID)
 
+	// Enable controller services
 	if err := e.nifi.ActivateControllerServicesInGroup(targetID, "ENABLED"); err != nil {
 		cr.Status.AtProvider.Message = fmt.Sprintf("Enabling controller services: %v", err)
 	}
 
-	cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseEnablingServices
-	cr.Status.AtProvider.Message = "Enabling controller services"
+	// Immediately check if services are enabled — skip the extra reconcile cycle
+	services, err := e.nifi.ListControllerServicesInGroup(targetID)
+	if err == nil {
+		allEnabled := true
+		for _, svc := range services {
+			if svc.Component != nil && !strings.EqualFold(svc.Component.State, "ENABLED") {
+				allEnabled = false
+				break
+			}
+		}
+		if !allEnabled {
+			cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseEnablingServices
+			cr.Status.AtProvider.Message = "Waiting for controller services to enable"
+			return managed.ExternalUpdate{}, nil
+		}
+	}
+
+	// Services are enabled — start the PG immediately (collapse enable + start into one cycle)
+	desiredState := cr.Spec.ForProvider.DesiredState
+	if desiredState == "" {
+		desiredState = "STOPPED"
+	}
+
+	if desiredState == "RUNNING" {
+		if err := e.nifi.ScheduleProcessGroup(targetID, "RUNNING"); err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot start process group")
+		}
+	}
+
+	// Start health check immediately — no need for a separate Starting phase
+	now := metav1.Now()
+	cr.Status.AtProvider.HealthCheckStartTime = &now
+	cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseHealthChecking
+	cr.Status.AtProvider.Message = "Services enabled, processors started, health check started"
 	return managed.ExternalUpdate{}, nil
 }
 
@@ -649,35 +705,11 @@ func (e *external) checkServicesAndStart(ctx context.Context, cr *v1alpha1.Manag
 		}
 	}
 
-	cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseStarting
-	cr.Status.AtProvider.Message = fmt.Sprintf("Process group %s scheduled to %s", targetID, desiredState)
-	return managed.ExternalUpdate{}, nil
-}
-
-func (e *external) beginHealthCheck(ctx context.Context, cr *v1alpha1.ManagedFlow) (managed.ExternalUpdate, error) {
-	targetID := e.getTargetPGID(cr)
-
-	// Verify PG is in the expected state
-	pg, err := e.nifi.GetProcessGroup(targetID)
-	if err != nil {
-		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot get process group for health check")
-	}
-
-	desiredState := cr.Spec.ForProvider.DesiredState
-	if desiredState == "" {
-		desiredState = "STOPPED"
-	}
-
-	if desiredState == "RUNNING" && pg.RunningCount == 0 {
-		// Not yet running, wait
-		cr.Status.AtProvider.Message = "Waiting for processors to start"
-		return managed.ExternalUpdate{}, nil
-	}
-
+	// Skip Starting phase — go directly to health check
 	now := metav1.Now()
 	cr.Status.AtProvider.HealthCheckStartTime = &now
 	cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseHealthChecking
-	cr.Status.AtProvider.Message = "Health check started"
+	cr.Status.AtProvider.Message = "Services enabled, processors started, health check started"
 	return managed.ExternalUpdate{}, nil
 }
 
@@ -786,14 +818,30 @@ func (e *external) checkHealth(ctx context.Context, cr *v1alpha1.ManagedFlow) (m
 
 	// Health check passed
 	if isBlueGreen {
-		// Advance to draining old PG
+		// Stop input processors on old PG to begin draining
+		_ = e.stopInputProcessors(cr.Status.AtProvider.ActiveProcessGroupID)
+
+		// Check if queues are already empty — if so, skip the Draining phase entirely.
+		// NiFi returns QueuedCount as "0 (0 bytes)" or "5 (1.2 KB)" — only skip if
+		// we get a definitive "0" prefix. Never skip on empty string (means no data yet).
+		alreadyDrained := false
+		status, statusErr := e.nifi.GetProcessGroupStatus(cr.Status.AtProvider.ActiveProcessGroupID)
+		if statusErr == nil && status.ProcessGroupStatus != nil && status.ProcessGroupStatus.AggregateSnapshot != nil {
+			qc := status.ProcessGroupStatus.AggregateSnapshot.QueuedCount
+			if qc != "" && strings.HasPrefix(qc, "0") {
+				alreadyDrained = true
+			}
+		}
+
+		if alreadyDrained {
+			cr.Status.AtProvider.Message = "Health check passed, queues already empty — cutting over"
+			return e.checkDrain(ctx, cr)
+		}
+
 		now := metav1.Now()
 		cr.Status.AtProvider.DrainStartTime = &now
 		cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseDrainingOld
 		cr.Status.AtProvider.Message = "Health check passed, draining old process group"
-
-		// Stop only input processors (no incoming connections) to allow data to drain through
-		_ = e.stopInputProcessors(cr.Status.AtProvider.ActiveProcessGroupID)
 	} else {
 		// Initial create — we're done
 		cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseActive
@@ -821,6 +869,7 @@ func (e *external) checkDrain(ctx context.Context, cr *v1alpha1.ManagedFlow) (ma
 	oldPGID := cr.Status.AtProvider.ActiveProcessGroupID
 	newPGID := cr.Status.AtProvider.PendingProcessGroupID
 	drainTimeout := getDrainTimeout(cr)
+	e.log.Debug("Checking drain", "oldPG", oldPGID, "newPG", newPGID, "drainTimeout", drainTimeout)
 
 	// SAFETY: If oldPGID == newPGID, it means Observe updated ActiveProcessGroupID from the
 	// external name annotation (which was already swapped in a previous checkDrain whose status
@@ -877,8 +926,7 @@ func (e *external) checkDrain(ctx context.Context, cr *v1alpha1.ManagedFlow) (ma
 	}
 
 	// Swap external name to the new PG BEFORE deleting the old one.
-	// This ensures that even if the subsequent delete or status write fails,
-	// the next reconcile's Observe will find the new PG (not the deleted old one).
+	e.log.Info("Cutover: swapping active PG", "oldPG", oldPGID, "newPG", newPGID, "drained", drained, "timedOut", timedOut)
 	meta.SetExternalName(cr, newPGID)
 	cr.Status.AtProvider.ActiveProcessGroupID = newPGID
 	cr.Status.AtProvider.PendingProcessGroupID = ""
@@ -917,11 +965,14 @@ func (e *external) checkDrain(ctx context.Context, cr *v1alpha1.ManagedFlow) (ma
 	// Clean up old parameter context after successful cutover
 	e.cleanupOldParameterContext(cr)
 
-	// Rename the new active PG to the ManagedFlow name (remove version suffix)
+	// Rename the new active PG to the ManagedFlow name (remove "-pending" suffix)
 	newPG, renameErr := e.nifi.GetProcessGroup(newPGID)
 	if renameErr == nil && newPG.Revision != nil && newPG.Revision.Version != nil {
 		_ = e.renamePG(newPGID, cr.Name, *newPG.Revision.Version)
 	}
+
+	// Rename the parameter context back to the original name (remove "-genN"/"-genN-bg" suffix)
+	e.renameParameterContextToOriginal(cr)
 	cr.Status.AtProvider.HealthCheckStartTime = nil
 	cr.Status.AtProvider.DrainStartTime = nil
 	now := metav1.Now()
@@ -934,26 +985,94 @@ func (e *external) doInPlaceUpdate(ctx context.Context, cr *v1alpha1.ManagedFlow
 	externalName := meta.GetExternalName(cr)
 	p := cr.Spec.ForProvider
 
-	// Change flow version if needed
-	desiredVersion := p.FlowVersion
-	if desiredVersion > 0 && cr.Status.AtProvider.CurrentVersion != desiredVersion {
+	e.log.Info("Starting in-place upgrade", "currentVersion", cr.Status.AtProvider.CurrentVersion, "lastImportedRaw", cr.Status.AtProvider.LastImportedVersionRaw)
+	cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseUpgrading
+	cr.Status.AtProvider.Message = "In-place upgrade: stopping processors"
+
+	// 1. Stop all processors
+	if err := e.nifi.ScheduleProcessGroup(externalName, "STOPPED"); err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot stop process group for in-place update")
+	}
+
+	// 2. Disable all controller services (must be done before version change)
+	_ = e.nifi.ActivateControllerServicesInGroup(externalName, "DISABLED")
+
+	// 3. Change flow version
+	importVersion := p.FlowVersion
+	var versionRaw string
+	if importVersion <= 0 {
+		latestNum, latestRawStr, latestErr := e.nifi.GetLatestFlowVersionInfo(p.RegistryID, p.BucketID, p.FlowID, p.Branch)
+		if latestErr == nil && latestNum > 0 {
+			importVersion = latestNum
+			versionRaw = latestRawStr
+		}
+	}
+
+	// Skip if already on the target version (only parameters changed)
+	sameRawVersion := versionRaw != "" && versionRaw == cr.Status.AtProvider.LastImportedVersionRaw
+	sameIntVersion := importVersion > 0 && importVersion == cr.Status.AtProvider.CurrentVersion && versionRaw == ""
+	versionChanged := !(sameRawVersion || sameIntVersion)
+
+	if versionChanged {
+		cr.Status.AtProvider.Message = "In-place upgrade: changing flow version"
 		vci, err := e.nifi.GetVersionControlInfo(externalName)
 		if err != nil {
 			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot get version control info for in-place update")
 		}
 		if vci.VersionControlInformation != nil {
-			vci.VersionControlInformation.Version = int32(desiredVersion)
+			vci.VersionControlInformation.Version = int32(importVersion)
 			if err := e.nifi.ChangeFlowVersion(externalName, *vci); err != nil {
 				return managed.ExternalUpdate{}, errors.Wrap(err, "cannot change flow version in-place")
 			}
 		}
 	}
 
-	// Re-enable controller services
+	// 4. Update parameter context if inline parameters changed
+	paramCtxID, err := e.resolveParameterContext(ctx, cr)
+	if err != nil {
+		cr.Status.AtProvider.Message = fmt.Sprintf("Warning: could not resolve parameter context: %v", err)
+	}
+	if paramCtxID != "" && err == nil {
+		// Re-read PG to get current revision after version change
+		pg, pgErr := e.nifi.GetProcessGroup(externalName)
+		if pgErr == nil && pg.Revision != nil && pg.Revision.Version != nil {
+			cr.Status.AtProvider.Version = *pg.Revision.Version
+		}
+		if assignErr := e.assignParameterContext(externalName, paramCtxID, cr.Status.AtProvider.Version); assignErr != nil {
+			cr.Status.AtProvider.Message = fmt.Sprintf("Warning: could not assign parameter context: %v", assignErr)
+		}
+	}
+
+	// 5. Re-enable controller services
+	cr.Status.AtProvider.Message = "In-place upgrade: enabling services"
 	_ = e.nifi.ActivateControllerServicesInGroup(externalName, "ENABLED")
 
-	cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseEnablingServices
-	cr.Status.AtProvider.Message = "In-place version update, re-enabling services"
+	// 6. Start processors if desired
+	desiredState := p.DesiredState
+	if desiredState == "" {
+		desiredState = "STOPPED"
+	}
+	if desiredState == "RUNNING" {
+		cr.Status.AtProvider.Message = "In-place upgrade: starting processors"
+		if err := e.nifi.ScheduleProcessGroup(externalName, "RUNNING"); err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot start process group after in-place update")
+		}
+	}
+
+	// 7. Finalize — go straight to Active (no health check or drain needed)
+	if importVersion > 0 {
+		cr.Status.AtProvider.CurrentVersion = importVersion
+	}
+	if versionRaw != "" {
+		cr.Status.AtProvider.LastImportedVersionRaw = versionRaw
+	}
+	cr.Status.AtProvider.Phase = v1alpha1.ManagedFlowPhaseActive
+	cr.Status.AtProvider.LastAppliedGeneration = cr.Generation
+	cr.Status.AtProvider.LastAppliedParameterHash = computeParameterHash(p.ParameterContext)
+	cr.Status.AtProvider.Message = "In-place upgrade completed"
+	now := metav1.Now()
+	cr.Status.AtProvider.LastRolloutTime = &now
+	e.log.Info("In-place upgrade completed", "version", importVersion, "versionRaw", versionRaw)
 	return managed.ExternalUpdate{}, nil
 }
 
@@ -1148,6 +1267,32 @@ func (e *external) cleanupOldParameterContext(cr *v1alpha1.ManagedFlow) {
 	}
 	_ = e.nifi.DeleteParameterContext(oldID, version)
 	cr.Status.AtProvider.PreviousParameterContextID = ""
+}
+
+// renameParameterContextToOriginal renames the active parameter context back to the original
+// name specified in the spec (removing the "-genN"/"-genN-bg" suffix added during rollout).
+func (e *external) renameParameterContextToOriginal(cr *v1alpha1.ManagedFlow) {
+	pcID := cr.Status.AtProvider.ParameterContextID
+	if pcID == "" || cr.Spec.ForProvider.ParameterContext == nil {
+		return
+	}
+	originalName := cr.Spec.ForProvider.ParameterContext.Name
+	if originalName == "" {
+		return
+	}
+	pc, err := e.nifi.GetParameterContext(pcID)
+	if err != nil {
+		return
+	}
+	// Already has the right name
+	if pc.Component != nil && pc.Component.Name == originalName {
+		return
+	}
+	// Rename it
+	if pc.Component != nil {
+		pc.Component.Name = originalName
+	}
+	_, _ = e.nifi.UpdateParameterContext(*pc)
 }
 
 // rollbackParameterContext deletes the new parameter context and restores the old one.
@@ -1424,7 +1569,7 @@ func (e *external) recoverActivePG(cr *v1alpha1.ManagedFlow, staleExternalName s
 			for i := range childPGs {
 				child := &childPGs[i]
 				if child.Component != nil && (child.Component.Name == cr.Name ||
-					strings.HasPrefix(child.Component.Name, cr.Name+"-v")) {
+					child.Component.Name == cr.Name+"-pending") {
 					meta.SetExternalName(cr, child.Id)
 					cr.Status.AtProvider.ActiveProcessGroupID = child.Id
 					return child, nil
@@ -1450,6 +1595,7 @@ func isTransitionalPhase(phase v1alpha1.ManagedFlowPhase) bool {
 		v1alpha1.ManagedFlowPhaseStarting,
 		v1alpha1.ManagedFlowPhaseHealthChecking,
 		v1alpha1.ManagedFlowPhaseDrainingOld,
+		v1alpha1.ManagedFlowPhaseUpgrading,
 		v1alpha1.ManagedFlowPhaseRollingBack:
 		return true
 	}
